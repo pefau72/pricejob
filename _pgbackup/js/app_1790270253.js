@@ -4,25 +4,26 @@ let swup;
 // Language and partials
 // -------------------------
 
-
-
 async function loadPartials() {
-    const language =
-    localStorage.getItem("language") || "en";
-    const headerResponse =
-    await fetch(`${language}/header.html`);
-    document.getElementById("header-container").innerHTML =
-    await headerResponse.text();
-    const footerResponse =
-    await fetch(`${language}/footer.html`);
-    document.getElementById("footer-container").innerHTML =
-    await footerResponse.text();
+    console.log(window.location.pathname);
+    console.log(window.location.pathname.split("/").pop());
+    // Language comes from the URL prefix: "/en/..." or "/de/..."
+    const lang = window.location.pathname.split("/")[1] || "en";
+
+    const [headerResponse, footerResponse] = await Promise.all([
+        fetch("header.html"),
+        fetch("footer.html")
+    ]);
+
+    document.getElementById("header-container").innerHTML = await headerResponse.text();
+    document.getElementById("footer-container").innerHTML = await footerResponse.text();
+
+    // Mark the active language now that the buttons exist in the DOM
+    document.querySelectorAll(".language-switcher button").forEach(btn => {
+        const active = btn.dataset.language === lang;
+        btn.setAttribute("aria-current", active ? "true" : "false");
+    });
 }
-
-let languageLoading = false;
-
-
-
 
 // -------------------------
 // Keyboard navigation
@@ -63,11 +64,8 @@ function enableKeyboardNavigation() {
 // -------------------------
 
 function updateActiveNav() {
-
     const current = window.location.pathname .split("/") .pop() || "index.html";
-
     document .querySelectorAll(".nav-links a") .forEach(link => {
-
         link.classList.remove("active");
         if (link.getAttribute("href")
         === current
@@ -84,31 +82,28 @@ function updateActiveNav() {
 document.addEventListener(
     "DOMContentLoaded",
     async () => {
-        console.log("1");
         await loadPartials();
-        console.log("2");
         updateActiveNav();
-        console.log("3");
         activateLanguageButtons();
-        console.log("4");
         swup = new Swup();
-        console.log("5");
-        swup.on("contentReplaced", () => {updateActiveNav();});
-        console.log("6");
+        swup.on("contentReplaced", () => {updateActiveNav();document.activeElement.blur();});
         enableKeyboardNavigation();
     }
 );
 
+
 function activateLanguageButtons() {
     document
-        .querySelectorAll("[data-language]")
-        .forEach(button => {
-            button.addEventListener("click", () => {
+    .querySelectorAll("[data-language]")
+    .forEach(button => {
+        button.addEventListener("click", () => {
             const lang = button.dataset.language;
-            const current = localStorage.getItem("language") || "en";
-            if (lang === current) {return;}
-            localStorage.setItem("language", lang);
-            location.reload();
+            const page = window.location.pathname
+            .split("/")
+            .pop();
+            window.location.href = `/${lang}/${page}`;
         });
     });
 }
+
+

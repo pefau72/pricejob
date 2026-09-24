@@ -4,31 +4,20 @@ let swup;
 // Language and partials
 // -------------------------
 
-
 async function loadPartials() {
-    try {
-        const language =localStorage.getItem("language") || "en";
-        console.log("Language:", language);
-        const headerResponse = await fetch(`partials/${language}/header.html`);
-        console.log("Header status:", headerResponse.status);
-        const headerHtml = await headerResponse.text();
-        console.log("Header length:", headerHtml.length);
-        document.getElementById("header-container").innerHTML = headerHtml;
-        const footerResponse = await fetch(`partials/${language}/footer.html`);
-        console.log("Footer status:", footerResponse.status);
-        const footerHtml = await footerResponse.text();
-        console.log("Footer length:", footerHtml.length);
-        document.getElementById("footer-container").innerHTML = footerHtml;
-        console.log("Partials loaded");
-    } catch(error) {
-        console.error(error);
+    const language = localStorage.getItem("language") || "en";
+    const headerResponse = await fetch("header.html");
+    document.getElementById("header-container").innerHTML = await headerResponse.text();
+    const footerResponse = await fetch("footer.html");
+    document.getElementById("footer-container").innerHTML =
+    await footerResponse.text();
+    document.querySelectorAll(".nav-links a").forEach(link => {
+    const current = window.location.pathname.split("/").pop();
+    if (link.getAttribute("href") === current) {
+        link.classList.add("active");
     }
+    });
 }
-
-let languageLoading = false;
-
-
-
 
 // -------------------------
 // Keyboard navigation
@@ -69,11 +58,8 @@ function enableKeyboardNavigation() {
 // -------------------------
 
 function updateActiveNav() {
-
     const current = window.location.pathname .split("/") .pop() || "index.html";
-
     document .querySelectorAll(".nav-links a") .forEach(link => {
-
         link.classList.remove("active");
         if (link.getAttribute("href")
         === current
@@ -90,31 +76,28 @@ function updateActiveNav() {
 document.addEventListener(
     "DOMContentLoaded",
     async () => {
-        console.log("1");
         await loadPartials();
-        console.log("2");
         updateActiveNav();
-        console.log("3");
         activateLanguageButtons();
-        console.log("4");
-        swup = new swup();
-        console.log("5");
-        swup.on("contentReplaced", () => {updateActiveNav();});
-        console.log("6");
+        swup = new Swup();
+        swup.on("contentReplaced", () => {updateActiveNav();document.activeElement.blur();});
         enableKeyboardNavigation();
     }
 );
 
+
 function activateLanguageButtons() {
     document
-        .querySelectorAll("[data-language]")
-        .forEach(button => {
-            button.addEventListener("click", () => {
+    .querySelectorAll("[data-language]")
+    .forEach(button => {
+        button.addEventListener("click", () => {
             const lang = button.dataset.language;
-            const current = localStorage.getItem("language") || "en";
-            if (lang === current) {return;}
-            localStorage.setItem("language", lang);
-            location.reload();
+            const page = window.location.pathname
+            .split("/")
+            .pop();
+            window.location.href = `/${lang}/${page}`;
         });
     });
 }
+
+

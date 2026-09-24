@@ -28,26 +28,26 @@ function languageUrl(lang) {
 }
 
 async function loadPartials() {
+
+    // Language comes from the URL prefix: "/en/..." or "/de/..."
     const lang = currentLang();
+    console.log(lang);
+    const [headerResponse, footerResponse] = await Promise.all([
+        fetch(`/header.html`),
+        fetch(`/footer.html`)
+    ]);
 
-    const urls = [`/${lang}/header.html`, `/${lang}/footer.html`];
-    const responses = await Promise.all(urls.map(u => fetch(u)));
+    document.getElementById("header-container").innerHTML = await headerResponse.text();
+    document.getElementById("footer-container").innerHTML = await footerResponse.text();
 
-    const bad = urls.filter((u, i) => !responses[i].ok);
-    if (bad.length) {
-        console.error("Partials failed to load:", bad, responses.map(r => r.status));
-    }
-
-    const [headerHTML, footerHTML] = await Promise.all(responses.map(r => r.text()));
-    document.getElementById("header-container").innerHTML = headerHTML;
-    document.getElementById("footer-container").innerHTML = footerHTML;
-
+        // Buttons exist in the DOM only now, so their active state is set here.
     document.querySelectorAll(".language-switcher [data-language]").forEach(btn => {
         btn.setAttribute("aria-current", btn.dataset.language === lang ? "true" : "false");
     });
-
+    // ...and their click handlers have to be (re)bound here too.
     activateLanguageButtons();
 }
+
 // -------------------------
 // Language switching
 // -------------------------

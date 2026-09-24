@@ -3,9 +3,17 @@
     <head>
         <meta charset="utf-8">
         <title>Regenda</title>
-        <meta http-equiv="refresh" content="0; url=/en/index.html">
-        <link rel="canonical" href="/en/index.html">
-        <script>location.replace('/en/index.html' + location.search + location.hash);</script>
+        <script>
+        // Go to /en/index.html (or /de/index.html) from the bare root.
+        // Remembers the last choice so a returning visitor lands where they left.
+        const saved = localStorage.getItem("lang");
+        const lang = (saved === "de") ? "de" : "en";
+        window.location.replace(lang + "/index.html");
+    </script>
     </head>
-    <body></body>
+    <body>
+        <noscript>
+            <a href="en/index.html">Continue</a>
+        </noscript>
+    </body>
 </html>

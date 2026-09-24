@@ -73,37 +73,6 @@ body,
 .nav-links a.active,
 .nav-links a:focus {
     color: #4a90e2;
-    outline: none;
-}
-
-.language-switcher {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.language-switcher button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    background: none;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    cursor: pointer;
-    line-height: 0;
-
-    /* kills the image's inline baseline gap */
-}
-
-.language-switcher button:hover,
-.language-switcher button:focus-visible {
-    border-color: currentColor;
-}
-
-.language-switcher img {
-    display: block;
-    border-radius: 2px;
 }
 
 /* ===========================

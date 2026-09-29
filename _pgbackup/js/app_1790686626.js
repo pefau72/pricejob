@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateActiveNav();
     enableKeyboardNavigation();
 
-    swup = new Swup({linkSelector:'a[href]:not([data-no-swup]):not([href$=".pdf"])'});
+    swup = new Swup();
 
     swup.on("contentReplaced", async () => {
         // If the header lives inside the swup container it is swapped out,

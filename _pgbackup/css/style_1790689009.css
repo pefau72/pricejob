@@ -276,7 +276,7 @@ html.is-animating .transition-fade {
         /* ← bryd til næste linje hvis nødvendigt */
         justify-content: center;
         align-items: center;
-        gap: 8px 12px;
+        gap: 8px 16px;
 
         /* rækkeafstand, kolonneafstand */
         width: 100%;

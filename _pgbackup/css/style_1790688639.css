@@ -1,4 +1,41 @@
 /* ===========================
+   FONTS
+   =========================== */
+@font-face {
+    font-family: "Frutiger";
+    src: url("../fonts/FrutigerLTPro-Roman.otf") format("opentype");
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Frutiger";
+    src: url("../fonts/FrutigerLTStd-Black.otf") format("opentype");
+    font-weight: black;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Frutiger";
+    src: url("../fonts/FrutigerLTStd-Light.otf") format("opentype");
+    font-weight: lighter;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Frutiger";
+    src: url("../fonts/FrutigerLTStd-Italic.otf") format("opentype");
+    font-weight: normal;
+    font-style: italic;
+}
+
+body,
+.main-header,
+.main-header a {
+    font-family: "Frutiger", sans-serif;
+}
+
+/* ===========================
    HEADER
    =========================== */
 .main-header {
@@ -32,58 +69,58 @@
     font-weight: 500;
 }
 
-.nav-links a:hover {
-    color: #0077cc;
+.nav-links a:hover,
+.nav-links a.active,
+.nav-links a:focus {
+    color: #4a90e2;
+    outline: none;
 }
 
-.nav-links a.active {
-    font-weight: bold;
-    color: #0055aa;
-    border-bottom: 2px solid #0055aa;
+.language-switcher img {
+    display: block;
+    width: 28px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 2px;
 }
 
-/* ===========================
-   FONTS
-   =========================== */
-@font-face {
-    font-family: "Frutiger";
-    src: url("../fonts/FrutigerLTPro-Roman.otf") format("opentype");
-    font-weight: normal;
-    font-style: normal;
+.language-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-@font-face {
-    font-family: "Frutiger";
-    src: url("../fonts/FrutigerLTStd-Black.otf") format("opentype");
-    font-weight: black;
-    font-style: normal;
+.language-switcher button,
+.language-switcher a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 0;
+    text-decoration: none;
 }
 
-@font-face {
-    font-family: "Frutiger";
-    src: url("../fonts/FrutigerLTStd-Light.otf") format("opentype");
-    font-weight: lighter;
-    font-style: normal;
+.language-switcher button:hover,
+.language-switcher button:focus-visible,
+.language-switcher a:hover,
+.language-switcher a:focus-visible {
+    border-color: currentColor;
 }
 
-@font-face {
-    font-family: "Frutiger";
-    src: url("../fonts/FrutigerLTStd-Italic.otf") format("opentype");
-    font-weight: normal;
-    font-style: italic;
-}
-
-body,
-.main-header,
-.main-header a {
-    font-family: "Frutiger", sans-serif;
+.language-switcher button[aria-current="true"],
+.language-switcher a.active {
+    border-color: #4a90e2;
 }
 
 /* ===========================
    PAGE CONTAINER
    =========================== */
 html,
-body {
+body {
     height: 100%;
 }
 
@@ -98,19 +135,6 @@ body {
     margin: 0 auto;
     padding: 20px;
     flex: 1;
-}
-
-/* ===========================
-   INTRO SECTION
-   =========================== */
-.intro-section {
-    display: flex;
-    gap: 40px;
-    align-items: flex-start;
-}
-
-.intro-text {
-    display: block;
 }
 
 /* ===========================
@@ -137,7 +161,7 @@ body {
 }
 
 .footer-left,
-.footer-right {
+.footer-right {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -149,7 +173,7 @@ body {
    =========================== */
 .transition-fade {
     opacity: 1;
-    transition: opacity 0.4s ease-in-out;
+    transition: opacity 0.7s ease-in-out;
 }
 
 html.is-animating .transition-fade {
@@ -160,6 +184,12 @@ html.is-animating .transition-fade {
    DESKTOP IMAGE SIZE
    =========================== */
 @media (min-width: 769px) {
+    .intro-section {
+        min-height: 300px;
+
+        /* stabilizes layout */
+    }
+
     .intro-section img {
         margin-top: 25px;
 
@@ -169,7 +199,18 @@ html.is-animating .transition-fade {
         max-height: 400px !important;
         height: auto !important;
         object-fit: contain;
-        flex: 0 0 auto;
+        flex: 0 0 350px;
+    }
+
+    .intro-section {
+        display: flex;
+        gap: 40px;
+        align-items: flex-start;
+    }
+
+     
+    .intro-text {
+        flex: 1;
     }
 }
 
@@ -188,7 +229,7 @@ html.is-animating .transition-fade {
         align-items: center;
         text-align: center;
         gap: 15px;
-        padding: 0 15px;
+        padding: 0 7px;
     }
 
     /* Intro section stacks */
@@ -215,7 +256,7 @@ html.is-animating .transition-fade {
     }
 
     .footer-left,
-    .footer-right {
+        .footer-right {
         flex-direction: column;
         align-items: center;
         gap: 10px;
@@ -227,23 +268,3 @@ html.is-animating .transition-fade {
     }
 }
 
-@media (min-width: 769px) {
-    .intro-section {
-        min-height: 300px;
-
-        /* stabilizes layout */
-    }
-}
-
-.intro-section {
-    display: flex;
-    gap: 40px;
-    align-items: flex-start;
-    width: 100%;
-}
-
- 
-.intro-text {
-    flex: 1;
-    min-width: 0;
-}

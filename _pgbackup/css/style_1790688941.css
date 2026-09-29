@@ -268,31 +268,23 @@ html.is-animating .transition-fade {
     }
 
     .nav-links {
-        flex-direction: row;
-
-        /* tilbage til vandret */
+        flex-direction: column;
         flex-wrap: wrap;
-
-        /* ← bryd til næste linje hvis nødvendigt */
-        justify-content: center;
         align-items: center;
-        gap: 8px 12px;
-
-        /* rækkeafstand, kolonneafstand */
+        gap: 10px;
         width: 100%;
         max-width: 100%;
         min-width: 0;
     }
 
-    .nav-links a {
-        padding: 6px 10px;
-        font-size: 0.9rem;
-
-        /* ← gør teksten smallere */
-        white-space: nowrap;
-
-        /* ← hvert link holdes på én linje */
+    .nav-links > *,
+        .nav-links a {
+        max-width: 100%;
         min-width: 0;
+        white-space: normal;
+
+        /* ← hvis der står nowrap nogen steder */
+        overflow-wrap: break-word;
     }
 }
 

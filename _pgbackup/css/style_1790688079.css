@@ -30,8 +30,8 @@
 }
 
 body,
-.main-header,
-.main-header a {
+.main-header,
+.main-header a {
     font-family: "Frutiger", sans-serif;
 }
 
@@ -70,8 +70,8 @@ body,
 }
 
 .nav-links a:hover,
-.nav-links a.active,
-.nav-links a:focus {
+.nav-links a.active,
+.nav-links a:focus {
     color: #4a90e2;
     outline: none;
 }
@@ -91,7 +91,7 @@ body,
 }
 
 .language-switcher button,
-.language-switcher a {
+.language-switcher a {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -105,14 +105,14 @@ body,
 }
 
 .language-switcher button:hover,
-.language-switcher button:focus-visible,
-.language-switcher a:hover,
-.language-switcher a:focus-visible {
+.language-switcher button:focus-visible,
+.language-switcher a:hover,
+.language-switcher a:focus-visible {
     border-color: currentColor;
 }
 
 .language-switcher button[aria-current="true"],
-.language-switcher a.active {
+.language-switcher a.active {
     border-color: #4a90e2;
 }
 
@@ -120,7 +120,7 @@ body,
    PAGE CONTAINER
    =========================== */
 html,
-body {
+body {
     height: 100%;
 }
 
@@ -161,7 +161,7 @@ body {
 }
 
 .footer-left,
-.footer-right {
+.footer-right {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -256,7 +256,7 @@ html.is-animating .transition-fade {
     }
 
     .footer-left,
-        .footer-right {
+    .footer-right {
         flex-direction: column;
         align-items: center;
         gap: 10px;
@@ -265,34 +265,6 @@ html.is-animating .transition-fade {
     /* Mobile padding */
     .page-container {
         padding: 15px;
-    }
-
-    .nav-links {
-        flex-direction: row;
-
-        /* tilbage til vandret */
-        flex-wrap: wrap;
-
-        /* ← bryd til næste linje hvis nødvendigt */
-        justify-content: center;
-        align-items: center;
-        gap: 8px 12px;
-
-        /* rækkeafstand, kolonneafstand */
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-    }
-
-    .nav-links a {
-        padding: 6px 10px;
-        font-size: 0.9rem;
-
-        /* ← gør teksten smallere */
-        white-space: nowrap;
-
-        /* ← hvert link holdes på én linje */
-        min-width: 0;
     }
 }
 

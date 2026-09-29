@@ -229,7 +229,7 @@ html.is-animating .transition-fade {
         align-items: center;
         text-align: center;
         gap: 15px;
-        padding: 0 15px;
+        padding: 0 7px;
     }
 
     /* Intro section stacks */
@@ -265,34 +265,6 @@ html.is-animating .transition-fade {
     /* Mobile padding */
     .page-container {
         padding: 15px;
-    }
-
-    .nav-links {
-        flex-direction: row;
-
-        /* tilbage til vandret */
-        flex-wrap: wrap;
-
-        /* ← bryd til næste linje hvis nødvendigt */
-        justify-content: center;
-        align-items: center;
-        gap: 8px 12px;
-
-        /* rækkeafstand, kolonneafstand */
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-    }
-
-    .nav-links a {
-        padding: 6px 10px;
-        font-size: 0.9rem;
-
-        /* ← gør teksten smallere */
-        white-space: nowrap;
-
-        /* ← hvert link holdes på én linje */
-        min-width: 0;
     }
 }
 

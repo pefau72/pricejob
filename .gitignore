@@ -1,0 +1,5 @@
+# ignore 
+
+_pginfo/*
+_pgbackup/*
+pinegrow.json

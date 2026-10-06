@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="">
+        <meta name="author" content="Peter Fausbøll">
+        <title>Regenda ApS</title>
+        <link href="/css/theme.css" rel="stylesheet" type="text/css">
+        <link href="/css/style.css" rel="stylesheet">
+    </head>
+    <body>
+        <div id="header-container"></div>
+        <div id="swup" class="page-container transition-fade">
+            <section class="intro-section">
+                <picture>
+                    <source media="(max-width: 768px)" srcset="/img/Konsulent_viser_vejen_mobil.png">
+                    <source media="(min-width: 769px)" srcset="/img/Konsulent_viser_vejen_mobil.png">
+                    <img src="/img/Konsulent_viser_vejen_mobil.png" alt="Peter Fausbøll" class="intro-photo">
+                </picture>
+                <div class="intro-text">
+                    <h1 id="page-title">Elpriser</h1>
+                    <div class="meta" id="page-meta">Indlæser data...</div>
+                    <!-- Elementet hvor grafen vil blive tegnet -->
+                    <canvas id="priceChart" style="width:100%; height:400px;"></canvas>
+                </div>
+            </section>
+        </div>
+        <div id="footer-container"></div>
+        <script src="/js/chart.js"></script>
+        <script src="/js/swup.min.js"></script>
+        <script src="/js/app.js"></script>
+        <script>
+        function initPriceChart() {
+            const chartCanvas = document.getElementById('priceChart');
+            if (!chartCanvas) return; // Stop hvis vi ikke er på elpris-siden
+
+            // Forhindrer fejl hvis chart.js ikke blev indlæst korrekt
+            if (typeof Chart === 'undefined') {
+                console.error("Chart.js er ikke indlæst korrekt fra /js/chart.js");
+                return;
+            }
+
+            const jsonFile = "../pricedata/prices-2026-09-29.json";
+
+            fetch(jsonFile)
+                .then(response => {
+                    if (!response.ok) throw new Error('Kunne ikke hente JSON-filen: ' + jsonFile);
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('page-title').innerText = `Elpriser — D. ${data.date}`;
+                    document.getElementById('page-meta').innerText = `Enhed: ${data.unit} | Data genereret: ${new Date(data.generated_utc).toLocaleString('da-DK')}`;
+
+                    const labels = data.hours.map(item => {
+                        const dateObj = new Date(item.ts);
+                        return String(dateObj.getHours()).padStart(2, '0') + ':' + String(dateObj.getMinutes()).padStart(2, '0');
+                    });
+                    
+                    const dk1Prices = data.hours.map(item => item.dk1);
+                    const dk2Prices = data.hours.map(item => item.dk2);
+
+                    const ctx = chartCanvas.getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'DK1 (Vestdanmark)',
+                                    data: dk1Prices,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    borderWidth: 2,
+                                    pointRadius: 1,
+                                    tension: 0.2
+                                },
+                                {
+                                    label: 'DK2 (Østdanmark)',
+                                    data: dk2Prices,
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    borderWidth: 2,
+                                    pointRadius: 1,
+                                    tension: 0.2
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { position: 'top' },
+                                tooltip: { mode: 'index', intersect: false }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    title: { display: true, text: 'Tidspunkt på dagen' }
+                                },
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: data.unit }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    const metaEl = document.getElementById('page-meta');
+                    if (metaEl) metaEl.innerText = "Fejl: " + error.message;
+                    console.error(error);
+                });
+        }
+
+        // Kør med det samme ved indlæsning
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPriceChart);
+        } else {
+            initPriceChart();
+        }
+
+        // Lytter sikkert efter Swup begivenheder på dokumentet i stedet for direkte på objektet
+        document.addEventListener('swup:contentReplaced', initPriceChart);
+        document.addEventListener('swup:pageView', initPriceChart); 
+    </script>
+    </body>
+</html>

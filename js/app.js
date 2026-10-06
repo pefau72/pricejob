@@ -1,4 +1,7 @@
+import { initPriceChart } from "./elpriser.js";
 let swup;
+
+
 
 // -------------------------
 // Language and partials
@@ -124,31 +127,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadPartials();
     updateActiveNav();
     enableKeyboardNavigation();
+    // obskurfikation
+    document.querySelectorAll('.email-link').forEach(a => {
+        const addr = `${a.dataset.u}@${a.dataset.d}`;
+        a.href = `mailto:${addr}`;
+        a.querySelector('.email-text').textContent = addr;
+    });    
+    swup = new Swup({ linkSelector: 'a[href]:not([data-no-swup]):not([href$=".pdf"])' });
 
-    swup = new Swup({linkSelector:'a[href]:not([data-no-swup]):not([href$=".pdf"])'});
+    initPriceChart();                       // first load
 
     swup.on("contentReplaced", async () => {
-        // If the header lives inside the swup container it is swapped out,
-        // so the language buttons must be re-fetched and re-bound.
         await loadPartials();
         updateActiveNav();
         document.activeElement.blur();
+        initPriceChart();                   // re-init after navigation
     });
 });
 
 
-function activateLanguageButtons() {
-    document
-    .querySelectorAll("[data-language]")
-    .forEach(button => {
-        button.addEventListener("click", () => {
-            const lang = button.dataset.language;
-            const page = window.location.pathname
-            .split("/")
-            .pop();
-            window.location.href = `/${lang}/${page}`;
-        });
-    });
-}
-
+// *********************
+// graph.js related stuff
+// *********************
 

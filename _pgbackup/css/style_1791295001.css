@@ -212,14 +212,22 @@ body {
     margin-top: 60px;
 }
 
-.footer-right {
+.footer-container {
     max-width: 1100px;
     margin: 0 auto;
     padding: 0 20px;
     display: flex;
+    justify-content: center;
+}
+
+.footer-right {
+    display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
+
+    /* ← tilføj: centrér indholdet internt */
     gap: 16px 28px;
 }
 
@@ -228,6 +236,26 @@ body {
     align-items: center;
     gap: 8px;
     margin: 0;
+}
+
+.footer-line img {
+    display: block;
+    height: auto;
+}
+
+.footer-line a {
+    color: #333;
+    text-decoration: none;
+}
+
+.footer-line a:hover,
+.footer-line a:focus-visible {
+    color: #4a90e2;
+    text-decoration: underline;
+}
+
+.footer-line > span:first-child {
+    color: #666;
 }
 
 /* ===========================

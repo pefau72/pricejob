@@ -1,7 +1,12 @@
 import { initPriceChart } from "./elpriser.js";
 let swup;
 
-
+// obskurfikation
+document.querySelectorAll('.email-link').forEach(a => {
+    const addr = `${a.dataset.u}@${a.dataset.d}`;
+    a.href = `mailto:${addr}`;
+    a.querySelector('.email-text').textContent = addr;
+});
 
 // -------------------------
 // Language and partials
@@ -127,12 +132,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadPartials();
     updateActiveNav();
     enableKeyboardNavigation();
-    // obskurfikation
-    document.querySelectorAll('.email-link').forEach(a => {
-        const addr = `${a.dataset.u}@${a.dataset.d}`;
-        a.href = `mailto:${addr}`;
-        a.querySelector('.email-text').textContent = addr;
-    });    
+
     swup = new Swup({ linkSelector: 'a[href]:not([data-no-swup]):not([href$=".pdf"])' });
 
     initPriceChart();                       // first load

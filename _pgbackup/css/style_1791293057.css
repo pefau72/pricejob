@@ -212,15 +212,23 @@ body {
     margin-top: 60px;
 }
 
-.footer-right {
+.footer-container {
     max-width: 1100px;
     margin: 0 auto;
     padding: 0 20px;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
     justify-content: center;
-    gap: 16px 28px;
+
+    /* ét barn: centrér det */
+}
+
+.footer-right {
+    display: flex;
+    flex-direction: row;
+
+    /* var: column */
+    align-items: center;
+    gap: 24px;
 }
 
 .footer-line {
@@ -228,6 +236,11 @@ body {
     align-items: center;
     gap: 8px;
     margin: 0;
+}
+
+.footer-line img {
+    display: block;
+    height: auto;
 }
 
 /* ===========================
@@ -308,13 +321,21 @@ html.is-animating .transition-fade {
     /* Footer: to linjer, hvert par på én linje */
     .footer-right {
         display: grid;
-        grid-template-columns: max-content max-content;
-        justify-content: center;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 16px;
         align-items: center;
-        gap: 8px 16px;
     }
 
-    /* Labels får ens bredde, så kolonne 2 starter samme sted */
+    .footer-line {
+        flex-wrap: nowrap;
+        white-space: nowrap;
+    }
+
+    .footer-line img {
+        max-width: 40vw;
+        width: auto;
+    }
+
     /* Mobile padding */
     .page-container {
         padding: 15px;

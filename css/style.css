@@ -11,14 +11,14 @@
 @font-face {
     font-family: "Frutiger";
     src: url("../fonts/FrutigerLTStd-Black.otf") format("opentype");
-    font-weight: black;
+    font-weight: 900;
     font-style: normal;
 }
 
 @font-face {
     font-family: "Frutiger";
     src: url("../fonts/FrutigerLTStd-Light.otf") format("opentype");
-    font-weight: lighter;
+    font-weight: 300;
     font-style: normal;
 }
 
@@ -30,9 +30,10 @@
 }
 
 body,
-.main-header,
-.main-header a {
+.main-header,
+.main-header a {
     font-family: "Frutiger", sans-serif;
+    font-weight: 300;
 }
 
 /* ===========================
@@ -70,8 +71,8 @@ body,
 }
 
 .nav-links a:hover,
-.nav-links a.active,
-.nav-links a:focus {
+.nav-links a.active,
+.nav-links a:focus {
     color: #4a90e2;
     outline: none;
 }
@@ -91,7 +92,7 @@ body,
 }
 
 .language-switcher button,
-.language-switcher a {
+.language-switcher a {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -105,14 +106,14 @@ body,
 }
 
 .language-switcher button:hover,
-.language-switcher button:focus-visible,
-.language-switcher a:hover,
-.language-switcher a:focus-visible {
+.language-switcher button:focus-visible,
+.language-switcher a:hover,
+.language-switcher a:focus-visible {
     border-color: currentColor;
 }
 
 .language-switcher button[aria-current="true"],
-.language-switcher a.active {
+.language-switcher a.active {
     border-color: #4a90e2;
 }
 
@@ -120,7 +121,7 @@ body,
    PAGE CONTAINER
    =========================== */
 html,
-body {
+body {
     height: 100%;
 }
 
@@ -135,6 +136,70 @@ body {
     margin: 0 auto;
     padding: 20px;
     flex: 1;
+}
+
+/* ===========================
+   CHART WRAPPER
+   =========================== */
+/* Bred bånd der spænder hele skærmen, uafhængigt af .page-container */
+.chart-wrapper {
+    position: relative;
+    height: 400px;
+    margin-top: 24px;
+
+    /* bryd ud af forælderens max-width */
+    width: 100vw;
+    max-width: 1200px;
+    margin-left: 50%;
+    transform: translateX(-50%);
+}
+
+.day-switch {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.day-switch button {
+    font: inherit;
+    font-size: 0.95rem;
+    padding: 6px 14px;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+}
+
+.day-switch button:hover:not(:disabled) {
+    border-color: #4a90e2;
+    color: #4a90e2;
+}
+
+.day-switch button.is-active {
+    background: #4a90e2;
+    border-color: #4a90e2;
+    color: #fff;
+}
+
+/* Grået når morgendagens priser ikke er offentliggjort endnu */
+.day-switch button:disabled {
+    background: #f5f5f5;
+    border-color: #e0e0e0;
+    color: #a0a0a0;
+    cursor: not-allowed;
+}
+
+.chart-date {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.meta {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    margin-top: 2px;
 }
 
 /* ===========================
@@ -161,7 +226,7 @@ body {
 }
 
 .footer-left,
-.footer-right {
+.footer-right {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -186,6 +251,9 @@ html.is-animating .transition-fade {
 @media (min-width: 769px) {
     .intro-section {
         min-height: 300px;
+        display: flex;
+        gap: 40px;
+        align-items: flex-start;
 
         /* stabilizes layout */
     }
@@ -202,13 +270,6 @@ html.is-animating .transition-fade {
         flex: 0 0 350px;
     }
 
-    .intro-section {
-        display: flex;
-        gap: 40px;
-        align-items: flex-start;
-    }
-
-     
     .intro-text {
         flex: 1;
     }
@@ -256,7 +317,7 @@ html.is-animating .transition-fade {
     }
 
     .footer-left,
-        .footer-right {
+    .footer-right {
         flex-direction: column;
         align-items: center;
         gap: 10px;
@@ -293,6 +354,15 @@ html.is-animating .transition-fade {
 
         /* ← hvert link holdes på én linje */
         min-width: 0;
+    }
+
+    .chart-wrapper {
+        width: 100%;
+        max-width: none;
+        margin-left: 0;
+        transform: none;
+        height: 260px;
+        margin-top: 16px;
     }
 }
 

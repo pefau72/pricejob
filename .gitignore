@@ -15,3 +15,8 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+*.swp
+*_BASE_*.html
+*_BACKUP_*.html
+*_LOCAL_*.html

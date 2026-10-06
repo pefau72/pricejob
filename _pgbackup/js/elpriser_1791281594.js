@@ -1,1 +1,0 @@
-import '/js/chart.min.js';   // UMD: definerer window.Chart som bivirkning

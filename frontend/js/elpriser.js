@@ -267,7 +267,7 @@ function buildChartConfig(data, { areas, currency }) {
                     title: { display: true, text: t('xAxis') }
                 },
                 y: {
-                    beginAtZero: false,
+                    beginAtZero: true,
                     ticks: { callback: v => nf.format(v) },
                     title: { display: true, text: unit, padding: { bottom: 8 } }
                 }

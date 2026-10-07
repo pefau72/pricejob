@@ -1,5 +1,5 @@
 option exclude "*/.git/*;*/.git/;_pgbackup/*;_pgbackup/;_pginfo/*;_pginfo/;koptiltxt.ps1;.git/"
-open sftp://regenda.dk:uBfe57DBdnJdIf#@sftp.netsite.dk:2222/ -explicit
+open sftp://regenda.dk:*****************@sftp.netsite.dk:2222/ -explicit
 lcd C:\Users\peter\Dropbox\Documents\Arbejde\Regenda\Grafik\websolution\frontend
 synchronize remote . /web/ -criteria=size+time 
 close

@@ -1,0 +1,54 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+    <head> 
+        <meta charset="utf-8"> 
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"> 
+        <meta name="viewport" content="width=device-width, initial-scale=1"> 
+        <meta name="description" content=""> 
+        <meta name="author" content=""> 
+        <title>New page</title>         
+        <link href="/css/theme.css" rel="stylesheet" type="text/css"> 
+        <link href="/css/style.css" rel="stylesheet"> 
+        <script src="/js/clarity.js"></script>         
+    </head>     
+    <body> 
+        <div id="header-container"></div>         
+        <div id="swup" class="page-container transition-fade"> 
+            <section class="intro-section"> 
+                <picture> 
+                    <source media="(max-width: 768px)" srcset="/img/Me_trading_mobil.png"> 
+                    <source media="(min-width: 769px)" srcset="/img/Me_trading_mobil.png"> 
+                    <img src="/img/Me_trading_mobil.png" alt="Peter Fausbøll" class="intro-photo"> 
+                </picture>                 
+                <div class="intro-text"> 
+                    <h1>Regenda provides:</h1> 
+                    Regenda offers customers the necessary quantitative skills needed to understand and navigate the ever more increasing amount of data coming from and influencing the markets.
+                    <h3>Market and contract analysis:</h3> 
+                    <ul>
+                        <li>PPA assistance for buyers</li>                         
+                        <li>CfD construction or utilization</li>
+                        <li>Hedging strategies</li>
+                        <li>Curve building, position/risk metrics</li>
+                    </ul>                     
+                    <h3>Regulatory & market design:</h3> 
+                    <ul> 
+                        <li>Policy assessments</li>                         
+                        <li>Help with dialogue with authorities</li>
+                        <li>Compliance documentation</li>
+                        <li>EU market-design implementation</li>
+                    </ul>                     
+                    <h3>Data & system delivery:</h3> 
+                    <ul> 
+                        <li>Market-data APIs and integrations to e.g. exchanges, TSOs or weather services</li>                         
+                        <li>Power BI/SQL reporting</li>                         
+                        <li>Price statistics w/ Python</li>                         
+                        <li>Small system project delivery</li>                         
+                    </ul>                     
+                </div>                 
+            </section>             
+        </div>         
+        <div id="footer-container"></div>         
+        <script src="/js/swup.min.js"></script>         
+        <script type="module" src="/js/app.js"></script>         
+    </body>     
+</html>

@@ -1,5 +1,6 @@
 # Pinegrow working files
 .pinegrow.json
+pinegrow.json
 _pgbackup/
 *.pgbackup
 

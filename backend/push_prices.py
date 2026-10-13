@@ -119,6 +119,7 @@ def load_env_file(path: Path | None = None, override: bool = False) -> None:
     fil nogen glemte.
     """
     path = path or Path(os.environ.get("PUSH_ENV_FILE", Path(__file__).parent / ".env"))
+
     if not path.is_file():
         return
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -606,7 +607,7 @@ def run_sftp(script: str, env: dict) -> None:
     argv = lftp_argv(script)
     last = ""
     for attempt in range(1, TRANSFER_ATTEMPTS + 1):
-        print(argv)
+        # print(argv)
         proc = subprocess.run(argv, capture_output=True, text=True, env=env,
                               timeout=TRANSFER_TIMEOUT)
         # lftp returnerer 0 selv når enkelte filer fejler — den skriver til

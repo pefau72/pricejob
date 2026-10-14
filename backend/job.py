@@ -136,7 +136,7 @@ def finish_run(conn, run_id, status, rows_fetched=0, rows_written=0,
                    elapsed_ms   = %s
              WHERE run_id = %s
             """,
-            (status, rows_fetched, rows_written, error, run_id),
+            (status, rows_fetched, rows_written, error, http_status, http_message, error_url, error_body, attempts, elapsed_ms, run_id),
         )
     conn.commit()
 

@@ -10,7 +10,7 @@
 
 set -uo pipefail
 
-APP_DIR="${PRICEJOB_DIR:-$HOME/code/pricejob}"
+APP_DIR="${PRICEJOB_DIR:-$HOME/code/pricejob/backend}"
 VERBOSE=0
 JSON=0
 case "${1:-}" in

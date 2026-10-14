@@ -1,15 +1,14 @@
-# pricejob — database documentation
+# database documentation for websolution
 
-PostgreSQL 14 database backing the electricity-price pipeline. One database holds
-two things: **the data we collect**, and **the log of how we collected it**. The
-goal of this document is to state the rules that `schema.sql` cannot express.
+PostgreSQL 14 database backing the electricity-price pipeline and more. One database holds
+two things: **the data we collect**, and **the log of how we collected it**.
 
 ---
 
 ## 1. What this database is for
 
-The pipeline fetches time-series data from external sources, stores it locally,
-and pushes a daily digest out to the website hosted on Netsite. The database is
+The pipeline fetches time-series data from external sources, stores it locally on ubserv,
+and pushes a daily digest out to the Regenda website hosted on Netsite. The database is
 the local system of record: every fetch is logged, every push is logged, and the
 collected series are stored in a shape that makes them cheap to query by time.
 
@@ -114,6 +113,30 @@ add constraints that buy nothing and cost writes.
 The tables are tied together by a **convention** — the `job` string — not by the
 schema. See section 4.1. This is what makes it cheap to add a new data source:
 you add a table and a job name. Nothing existing is migrated.
+
+pushed_state — what is currently out there
+One row per calendar day that has been uploaded, keyed on day (date, primary key).
+
+Column	Role
+day	The Danish calendar day this row is about
+pushed_at	When we last pushed it
+rows_pushed	How many price rows that day contained
+content_hash	Hash of the day's generated content
+
+push_runs — what we did each time
+One row per execution of the script, keyed on run_id (bigserial). This is pure append-only logging — nothing is ever updated except the row for the run in progress.
+
+Column	Role
+run_id	Identity of this execution
+started_at / finished_at	When it ran; finished_at is NULL while in flight
+status	running → ok / failed / dry_run
+days_planned	Days the window produced
+days_uploaded	Days actually transferred
+days_skipped	Days already current, not re-sent
+bytes_uploaded	Total transferred
+error	Failure reason, if any
+
+
 
 ---
 

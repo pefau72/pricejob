@@ -127,7 +127,13 @@ def finish_run(conn, run_id, status, rows_fetched=0, rows_written=0,
                    status       = %s,
                    rows_fetched = %s,
                    rows_written = %s,
-                   error        = %s
+                   error        = %s,
+                   http_status  = %s,
+                   http_message = %s,
+                   error_url    = %s,
+                   error_body   = %s,
+                   attempts     = %s,
+                   elapsed_ms   = %s
              WHERE run_id = %s
             """,
             (status, rows_fetched, rows_written, error, run_id),

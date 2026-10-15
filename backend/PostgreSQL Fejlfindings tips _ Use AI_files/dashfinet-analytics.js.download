@@ -1,0 +1,338 @@
+(function (window, document) {
+  if (window.dashAnalytics && window.dashAnalytics.__SV) return;
+
+  // Initialise the script
+  const dashAnalytics = {
+    init,
+  };
+  window.dashAnalytics = dashAnalytics;
+
+  const supportedClickIds = [
+    'gclid',
+    'fbclid',
+    'msclkid',
+    'ttclid',
+    'li_fat_id',
+    'twclid',
+    'epik',
+    'dclid',
+    'tdid',
+    'tblci',
+    'dicbo',
+    'cto_pld',
+    'adformid',
+    'sa_clickid',
+    'amzn_id',
+    'irclickid',
+    's_kwcid',
+    'clickid',
+    'click_id',
+    'external_id',
+    'gclsrc',
+    'wbraid',
+    'gbraid',
+    'srclid',
+    'rtb_click_id',
+    'vclid',
+    'aleid',
+  ];
+
+  function generateUUIDv7() {
+    const now = Date.now(); // Current timestamp in milliseconds
+    const timestamp = now.toString(16).padStart(12, '0'); // Convert to hex
+
+    // Generate 10 random bytes (20 hex characters)
+    const randomBytes = crypto.getRandomValues(new Uint8Array(10));
+    const randomHex = Array.from(randomBytes, (b) =>
+      b.toString(16).padStart(2, '0'),
+    ).join('');
+
+    // Construct the UUIDv7 format
+    return `${timestamp.substring(0, 8)}-${timestamp.substring(8)}7-${randomHex.substring(0, 4)}-b${randomHex.substring(5, 8)}-${randomHex.substring(8, 20)}`;
+  }
+
+  function getOrCreateSession() {
+    let sessionId = sessionStorage.getItem('dashAnalyticsSessionId');
+    if (!sessionId) {
+      sessionId = generateUUIDv7();
+      sessionStorage.setItem('dashAnalyticsSessionId', sessionId);
+    }
+    return sessionId;
+  }
+
+  // new session management
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+  const CLIENT_ID_KEY = 'dashAnalyticsClientId';
+  const ANALYTICS_SESSION_KEY = 'dashAnalyticsSession';
+
+  const memoryStore = (() => {
+    const mem = {};
+    return {
+      getItem: (key) => (key in mem ? mem[key] : null),
+      setItem: (key, value) => {
+        mem[key] = String(value);
+      },
+      removeItem: (key) => {
+        delete mem[key];
+      },
+    };
+  })();
+
+  let cachedStore = null;
+  function getStore() {
+    if (cachedStore) return cachedStore;
+    const probe = '__dashAnalyticsProbe__';
+    try {
+      window.localStorage.setItem(probe, '1');
+      window.localStorage.removeItem(probe);
+      cachedStore = window.localStorage;
+      return cachedStore;
+    } catch (e) {
+      console.warn('localStorage unavailable');
+    }
+    try {
+      window.sessionStorage.setItem(probe, '1');
+      window.sessionStorage.removeItem(probe);
+      cachedStore = window.sessionStorage;
+      return cachedStore;
+    } catch (e) {
+      console.warn('sessionStorage unavailable');
+    }
+    cachedStore = memoryStore;
+    return cachedStore;
+  }
+
+  function getOrCreateClientId(store) {
+    let clientId = store.getItem(CLIENT_ID_KEY);
+    if (!clientId) {
+      clientId = generateUUIDv7();
+      store.setItem(CLIENT_ID_KEY, clientId);
+    }
+    return clientId;
+  }
+
+  function getOrCreateAnalyticsSession(store) {
+    const now = Date.now();
+    let session = null;
+    try {
+      const raw = store.getItem(ANALYTICS_SESSION_KEY);
+      if (raw) {
+        session = JSON.parse(raw);
+      }
+    } catch {
+      // Corrupt/unparseable stored session - continue to creating a new one.
+    }
+
+    let isNew = false;
+    if (
+      !session ||
+      !session.id ||
+      typeof session.lastActivity !== 'number' ||
+      now - session.lastActivity > SESSION_TIMEOUT_MS
+    ) {
+      session = { id: generateUUIDv7(), lastActivity: now };
+      isNew = true;
+    } else {
+      session.lastActivity = now;
+    }
+
+    store.setItem(ANALYTICS_SESSION_KEY, JSON.stringify(session));
+    return { id: session.id, isNew };
+  }
+  // end of new session management
+
+  function captureClickIds(urlParams) {
+    return Object.fromEntries(
+      supportedClickIds
+        .filter((clickId) => urlParams.get(clickId) !== null)
+        .map((clickId) => [clickId, urlParams.get(clickId)])
+    );
+  }
+
+  function sendEventFetch(customerId, eventData, keepAlive, isInit) {
+    const url = isInit ?
+      `https://web-analytics.dashfi.net/v1/ad-pay-protection/web-analytics/` + customerId :
+      `https://web-analytics.dashfi.net/v1/ad-pay-protection/web-analytics/` + customerId + '/track';
+    const payload = JSON.stringify({ eventData });
+    const response = fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: keepAlive,
+    });
+
+    return response;
+  }
+
+  function captureEvent(customerId, event, keepAlive, extraData = {}, isInit = false) {
+    const sessionId = getOrCreateSession();
+    const store = getStore();
+    const clientId = getOrCreateClientId(store);
+    const analyticsSession = getOrCreateAnalyticsSession(store);
+
+    if (analyticsSession.isNew && event !== '$session_start') {
+      captureEvent(customerId, '$session_start', true, { ...extraData }, false);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const clickIds = captureClickIds(urlParams);
+    const eventData = {
+      distinctID: sessionId,
+      clientID: clientId,
+      sessionID: analyticsSession.id,
+      eventName: event,
+      userAgent: navigator.userAgent || 'unknown',
+      language: navigator.language || 'unknown',
+      platform: navigator.platform || 'unknown',
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      colorDepth: screen.colorDepth,
+      pixelDepth: screen.pixelDepth,
+      timezoneOffset: new Date().getTimezoneOffset(),
+      sessionStorage: !!window.sessionStorage,
+      localStorage: !!window.localStorage,
+      cookiesEnabled: navigator.cookieEnabled,
+      doNotTrack: navigator.doNotTrack || undefined,
+      plugins: Array.from(navigator.plugins).map((p) => p.name),
+      currentUrl: window.location.href,
+      previousUrl: document.referrer,
+      mimeTypes: Array.from(navigator.mimeTypes).map((m) => m.type),
+      touchSupport: 'ontouchstart' in window,
+      hardwareConcurrency: navigator.hardwareConcurrency || undefined,
+      deviceMemory: navigator.deviceMemory || undefined,
+      timestamp: new Date().toISOString(),
+      utmSource: urlParams.get('utm_source') || 'unknown',
+      utmMedium: urlParams.get('utm_medium') || 'unknown',
+      utmCampaign: urlParams.get('utm_campaign') || 'unknown',
+      utmTerm: urlParams.get('utm_term') || 'unknown',
+      utmContent: urlParams.get('utm_content') || 'unknown',
+      version: '82e2e6c1fff566146bd19d6bd09316156a7220bb',
+      ...clickIds,
+      ...extraData,
+    };
+
+    return sendEventFetch(customerId, eventData, keepAlive, isInit);
+  }
+
+  function init(customerId, source = 'unknown') {
+    captureEvent(customerId, '$pageview', true, {scriptSource: source}, true)
+      .then((response) => {
+        if (!response || !response.ok) {
+          console.warn('DashAnalytics: Error getting init response');
+          return;
+        }
+
+        response
+          .json()
+          .then((responseData) => {
+            if (responseData?.enabledBlokid && responseData?.customerEnabled) {
+              loadBlokIDScript(responseData.blokidId);
+            }
+          })
+          .catch((jsonErr) => {
+            console.error(
+              'Failed to parse JSON from DashAnalytics init response:',
+              jsonErr,
+            );
+          });
+      })
+      .catch((err) => {
+        console.error('DashAnalytics: error in init:', err);
+      });
+
+    captureEvent(customerId, '$page_load_started', true, { scriptSource: source });
+
+    setupEventListeners(customerId, source);
+  }
+
+  function initScrollTracking(customerId, source) {
+    let lastScrollY = window.scrollY;
+    let isScrolling = false;
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!isScrolling) {
+          isScrolling = true;
+          setTimeout(() => {
+            let currentScrollY = window.scrollY;
+            if (Math.abs(currentScrollY - lastScrollY) > 100) {
+              lastScrollY = currentScrollY;
+              captureEvent(customerId, '$scroll', false, {
+                eventType: 'scroll',
+                scrollPosition: currentScrollY,
+                scriptSource: source,
+              });
+            }
+            isScrolling = false;
+          }, 3000);
+        }
+      },
+      { passive: true },
+    );
+  }
+
+  function setupEventListeners(customerId, source) {
+    document.addEventListener('click', (e) =>
+      captureEvent(customerId, '$autocapture', false, {
+        element: e.target.tagName,
+        eventType: e.type,
+        scriptSource: source,
+      }),
+    );
+    window.addEventListener('beforeunload', (e) =>
+      captureEvent(customerId, '$pageleave', true, { 
+        eventType: e.type,
+        scriptSource: source
+      }),
+    );
+    document.addEventListener('submit', (e) =>
+      captureEvent(customerId, '$submit', true, {
+        formId: e.target.id || 'unnamed',
+        eventType: e.type,
+        scriptSource: source,
+      }),
+    );
+    window.addEventListener('load', (e) => {
+      captureEvent(customerId, '$performance_pageview', false, {
+        eventType: e.type,
+        scriptSource: source,
+      });
+      captureEvent(customerId, '$page_load_completed', false, {
+        eventType: e.type,
+        scriptSource: source,
+      });
+    });
+    window.addEventListener('popstate', () =>
+      setTimeout(() => captureEvent(customerId, '$pageview', false), {
+        scriptSource: source,
+      }, 1000),
+    );
+    window.addEventListener('hashchange', () =>
+      setTimeout(() => captureEvent(customerId, '$pageview', false, {
+        scriptSource: source,
+      }), 1000),
+    );
+    initScrollTracking(customerId, source);
+  }
+
+  function loadBlokIDScript(accountBlokidID) {
+    const startComment = document.createComment(' Dash.Fi ')
+    const endComment = document.createComment(' End Dash.Fi ')
+
+    const initScript = document.createElement('script');
+    initScript.src = 'https://pixel.dashfi.dev/static/js/pixel.dash.fi.js';
+    initScript.async = true;
+    initScript.onerror = () => console.error(`Failed to load BlokID init script!`);
+
+    const idScript = document.createElement('script');
+    idScript.textContent = `window.dashFiTracker = window.dashFiTracker || {};\nwindow.dashFiTracker['siteIdentifier'] = '${accountBlokidID}';`;
+    idScript.onerror = () => console.error(`Failed to load BlokID ID script!`);
+
+    document.head.appendChild(startComment);
+    document.head.appendChild(initScript);
+    document.head.appendChild(idScript);
+    document.head.appendChild(endComment);
+  }
+
+  dashAnalytics.__SV = 1;
+})(window, document);

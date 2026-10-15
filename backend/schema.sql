@@ -34,7 +34,6 @@ CREATE TABLE public.prices (
     fetched_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
 ALTER TABLE public.prices OWNER TO postgres;
 
 --

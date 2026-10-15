@@ -114,28 +114,42 @@ The tables are tied together by a **convention** — the `job` string — not by
 schema. See section 4.1. This is what makes it cheap to add a new data source:
 you add a table and a job name. Nothing existing is migrated.
 
-pushed_state — what is currently out there
-One row per calendar day that has been uploaded, keyed on day (date, primary key).
 
-Column	Role
-day	The Danish calendar day this row is about
-pushed_at	When we last pushed it
-rows_pushed	How many price rows that day contained
-content_hash	Hash of the day's generated content
+    sync_runs 
+        how the collect job.py went
+        djketr
+    
+    sync_state 
+        where the collect job has got to
+        This is the counterpart to pushed_state, on the other side of the pipeline. One row per job, keyed on job, updated in place
+        Vandmærket er den seneste TimeDK, du med sikkerhed har indlæst  Ikke hvad vi forsøgte at hente — hvad vi faktisk fik ind
+        get_watermark() returnerer None, hvis jobbet aldrig har kørt, og det None er meningsbærende, det betyder vi ved ingenting endnu, ikke vi er nået til begyndelsen
+    
+    push_runs 
+        what we did each time
+        One row per execution of the script, keyed on run_id (bigserial). This is pure append-only logging — nothing is ever updated except the row for the run in progress.
+    
+    pushed_state 
+        what is currently out there on Netsite
+        One row per calendar day that has been uploaded, keyed on day (date, primary key).
+        content_hash er push-sidens svar på det samme problem, som vandmærket løser på collect-siden — bare med en anden definition af "hvad vi har".
+        Push-jobbet skal kunne svare på: "er Netsites kopi af denne dag stadig aktuel?"
 
-push_runs — what we did each time
-One row per execution of the script, keyed on run_id (bigserial). This is pure append-only logging — nothing is ever updated except the row for the run in progress.
 
-Column	Role
-run_id	Identity of this execution
-started_at / finished_at	When it ran; finished_at is NULL while in flight
-status	running → ok / failed / dry_run
-days_planned	Days the window produced
-days_uploaded	Days actually transferred
-days_skipped	Days already current, not re-sent
-bytes_uploaded	Total transferred
-error	Failure reason, if any
 
+
+Et vindue ("hent de sidste 7 dage") spørger hvornår vi kører. Et vandmærke ("hent alt efter X") spørger hvad vi har. Kun det sidste overlever, at jobbet ikke kører i en periode — der er ingen kant, der kan passere ubeset, fordi der ikke er nogen kant. Der er bare en position.
+
+Hvorfor det virker: idempotens + retning
+To egenskaber bærer hele konstruktionen, og de er uafhængige af hinanden:
+
+Fremad-retningen er håndhævet i databasen. set_watermark() bruger GREATEST(sync_state.watermark_dk, EXCLUDED.watermark_dk). Vandmærket kan ikke rulle tilbage, uanset hvad koden gør. Det gør det sikkert at kalde funktionen fra et vilkårligt sted, for enhver kørsel, med enhver rækkefølge af rækker — det værste, der kan ske, er at intet ændrer sig.
+
+Bagud-overlapningen er håndteret af upsert. window_from = watermark - timedelta(days=2). Du henter altid to dage bagud forfra. Det ser forkert ud — hvorfor hente noget, man allerede har? — men det er nøjagtigt hvad der fanger Energinets rettelser og efterregistreringer. En pris, der blev ændret i går, ligger bag vandmærket, og uden overlapningen ville du aldrig se den.
+
+De to mekanismer passer på hinanden: overlapningen giver dækning bagud, GREATEST forhindrer den i at skade. Hent baglæns for at fange rettelser; flyt aldrig mærket baglæns.
+
+Og idempotensen gør gentagelsen gratis. ON CONFLICT ... DO UPDATE ... WHERE prices.dkk_per_kwh IS DISTINCT FROM EXCLUDED.dkk_per_kwh — læg mærke til WHERE-klausulen. Rækker, der ikke har ændret sig, bliver ikke skrevet overhovedet, og fetched_at røres ikke. Det er derfor, written kan være 0 for en kørsel, der hentede 5000 rækker: upserten rapporterer faktisk ændrede rækker, ikke indsatte. Overlapningen koster altså ikke skrivearbejde — kun læsearbejde.
 
 
 ---

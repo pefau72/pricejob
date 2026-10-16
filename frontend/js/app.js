@@ -1,4 +1,5 @@
 import { initPriceChart } from "./elpriser.js";
+import { initWeatherCharts } from "./vejr.js";
 let swup;
 
 /** Saml opdelte mailadresser til rigtige mailto-links. */
@@ -143,13 +144,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     swup = new Swup({ linkSelector: 'a[href]:not([data-no-swup]):not([href$=".pdf"])' });
 
-    initPriceChart();                       // first load
+    initPriceChart();
+    initWeatherCharts();                       // first load
 
     swup.on("contentReplaced", async () => {
         await loadPartials();
         updateActiveNav();
         document.activeElement.blur();
         initPriceChart();                   // re-init after navigation
+        initWeatherCharts();                // re-init after navigation
         hydrateEmails();
     });
 });

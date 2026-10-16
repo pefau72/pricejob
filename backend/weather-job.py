@@ -53,26 +53,41 @@ SOURCE_ID = "dmi"
 # Hvor mange dage tilbage vi *maksimalt* henter, første gang vi kører mod tom DB.
 MAX_BACKFILL_DAYS = int(os.environ.get("WEATHER_MAX_BACKFILL_DAYS", "30"))
 
-# Stationer: DMI stationId -> vores location_id. Tilføj efter behov.
-# Vælg få og velvalgte — det er her datamængden styres, ikke i opløsningen.
+# Stationer: DMI stationId -> vores location_id.
+# location_id ER DMI's stationstal. Det er en identifikator, ikke et tal:
+# den ledende nul betyder, at den skal gemmes som text, ikke integer.
 STATIONS = {
-    "06180": "copenhagen",
-    # "06120": "roskilde",
-    # "06060": "aarhus",
+    "06031": "06031",
+    "06065": "06065",
+    "06109": "06109",
+    "06141": "06141",
+    "06188": "06188",
+    "06197": "06197",
+}
+
+# Menneskenavne til weather_locations.display_name
+STATION_NAMES = {
+    "06031": "Tylstrup",
+    "06065": "Års Syd",
+    "06109": "Askov",
+    "06141": "Abed",
+    "06188": "Sjælsmark",
+    "06197": "Nexø Vest",
 }
 
 # DMI parameterId -> kolonne i weather. Hver parameter ER en kolonne, ikke en række.
 # Verificér navnene mod DMI's parameter-liste før første kørsel.
 PARAM_TO_COLUMN = {
-    "temp_dry":      "temperature_c",
-    "wind_speed":    "wind_ms",
-    "wind_dir":      "wind_dir_deg",
-    "humidity":      "humidity_pct",
-    "precip_past1h": "precip_mm",
-    "cloud_cover":   "cloud_pct",
+    "temp_mean_past1h": "temperature_c", # Latest hour's mean air temperature measured 2 m over terrain, 1h frequency
+    "wind_speed":       "wind_ms",       # Latest 10 minutes' mean wind speed measured 10 m over terrain, 10min frequency
+    "wind_dir":         "wind_dir_deg",  # Latest 10 minutes' mean wind direction measured 10 m over terrain. 0 means calm (see Codes), 10min frequency
+    "humidity":         "humidity_pct",  # Present relative humidity measured 2 m over terrain, 10min frequency
+    "precip_past1h":    "precip_mm",     # Accumulated precipitation in the latest hour or the code -0,1, which means "traces of precipitation, less than 0.1 kg/m²". kg/m² is equivalent to mm. (see Codes), hourly frequency
+    "cloud_cover":      "cloud_pct",     # The fraction of the sky covered by cloud of any type or height above the ground (see also Codes), 
+    "radia_glob":       "radiation_wm2", # Latest 10 minutes global radiation mean intensity, 10 min frequency
 }
 
-MAX_WORKERS = 12
+MAX_WORKERS = 3          # DMI's rate limit er stram: 6 stationer x 7 parametre = 42 kald
 HTTP_ATTEMPTS = 5
 HTTP_TIMEOUT = 60
 
@@ -84,9 +99,16 @@ def log(msg: str) -> None:
 
 
 def to_utc(s: str) -> datetime:
-    """ISO-streng fra DMI -> aware datetime i UTC."""
+    """ISO-streng fra DMI -> aware datetime i UTC.
+
+    DMI leverer '2026-10-15T15:00:00Z'. Python 3.10's fromisoformat kan
+    IKKE læse 'Z'-suffikset — det kom først i 3.11.
+    """
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
     dt = datetime.fromisoformat(s)
     return (dt if dt.tzinfo else dt.replace(tzinfo=CPH)).astimezone(timezone.utc)
+
 
 
 def api_key() -> str:
@@ -171,9 +193,10 @@ def finish_run(conn, run_id, status, rows_fetched=0, rows_written=0,
 
 UPSERT_SQL = """
     INSERT INTO weather (source_id, location_id, kind, ts_dk, issued_at,
+                         source_station_id,
                          temperature_c, wind_ms, wind_dir_deg,
-                         humidity_pct, precip_mm, cloud_pct)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         humidity_pct, precip_mm, cloud_pct, radiation_wm2)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (source_id, location_id, kind, ts_dk, issued_at) DO UPDATE
        SET temperature_c = EXCLUDED.temperature_c,
            wind_ms       = EXCLUDED.wind_ms,
@@ -193,12 +216,19 @@ UPSERT_SQL = """
 
 
 def upsert(conn, rows) -> int:
-    """Indsætter eller opdaterer. Returnerer antal faktisk ændrede rækker."""
+    """Indsætter eller opdaterer. Returnerer antal ramte rækker.
+
+    BEMÆRK: RETURNING 1 fjernes før executemany. psycopg3 returnerer ikke
+    resultatsættet fra RETURNING under executemany, så len(cur.fetchall())
+    gav altid 0 — tællingen løj, mens skrivningen virkede fint.
+    cur.rowcount virker derimod med executemany.
+    """
     if not rows:
         return 0
+    sql = UPSERT_SQL.replace("RETURNING 1", "")
     with conn.cursor() as cur:
-        cur.executemany(UPSERT_SQL, rows)
-        changed = len(cur.fetchall()) if cur.description else 0
+        cur.executemany(sql, rows)
+        changed = cur.rowcount
     conn.commit()
     return changed
 
@@ -283,6 +313,37 @@ def fetch_station(api_key: str, station_id: str,
     return by_time
 
 
+def ensure_source_locations(conn, stations) -> None:
+    """Sikrer at mappingen DMI-station <-> location_id findes i DB.
+
+    Skal køre FØR weather skrives, fordi weather.location_id har FK til
+    weather_locations. Gør mappingen til en kendsgerning i databasen frem
+    for en Python-dict, der kun findes så længe scriptet kører.
+    """
+    with conn.cursor() as cur:
+        for station_id, location_id in stations.items():
+            cur.execute(
+                """
+                INSERT INTO weather_locations
+                       (location_id, display_name, country, tz)
+                VALUES (%s, %s, 'DK', 'Europe/Copenhagen')
+                ON CONFLICT (location_id) DO NOTHING
+                """,
+                (location_id, STATION_NAMES.get(station_id, station_id)),
+            )
+            cur.execute(
+                """
+                INSERT INTO weather_source_locations
+                       (source_id, location_id, external_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (source_id, location_id)
+                DO UPDATE SET external_id = EXCLUDED.external_id
+                """,
+                (SOURCE_ID, location_id, station_id),
+            )
+    conn.commit()
+
+
 # ======================================================================== main
 
 def parse_args():
@@ -309,11 +370,17 @@ def main() -> int:
             watermark - timedelta(days=2),
             datetime.now(timezone.utc) - timedelta(days=args.days),
         )
-        ceiling = datetime.now(timezone.utc)
+        
+        ceiling = datetime.now(timezone.utc) + timedelta(days=1)
 
-        dt_str = (f"{floor.astimezone(CPH).strftime('%Y-%m-%dT%H:%M:%SZ')}/"
-                  f"{ceiling.astimezone(CPH).strftime('%Y-%m-%dT%H:%M:%SZ')}")
+        # DMI forventer ISO 8601 med offset — brug isoformat(), ikke Z-suffiks.
+        dt_str = (f"{floor.astimezone(CPH).strftime('%Y-%m-%d')}T00:00:00Z/"
+          f"{ceiling.astimezone(CPH).strftime('%Y-%m-%d')}T23:59:59Z")
+        
         log(f"vindue: {floor:%Y-%m-%d %H:%M} .. {ceiling:%Y-%m-%d %H:%M} UTC")
+
+        if not args.dry_run:
+            ensure_source_locations(conn, STATIONS)
 
         run_id = None if args.dry_run else start_run(conn, floor, ceiling)
         rows: list[tuple] = []
@@ -330,12 +397,14 @@ def main() -> int:
                     rows.append((
                         SOURCE_ID, location_id, KIND, ts,
                         ts,                                  # observation: issued_at = ts_dk
+                        station_id,                          # proveniens: hvilken DMI-station
                         v.get("temperature_c"),
                         v.get("wind_ms"),
                         v.get("wind_dir_deg"),
                         v.get("humidity_pct"),
                         v.get("precip_mm"),
                         v.get("cloud_pct"),
+                        v.get("radiation_wm2"),
                     ))
                 log(f"  {station_id} ({location_id}): {len(by_time)} tidspunkter")
 
@@ -351,17 +420,20 @@ def main() -> int:
             finish_run(conn, run_id, "ok", len(rows), written)
             log(f"skrev {written} ændrede rækker (af {len(rows)})")
             return 0
-
         except Exception as exc:
             log(f"FEJL: {exc!r}")
             if run_id is not None:
                 try:
                     finish_run(conn, run_id, "failed", error=repr(exc))
-                except Exception as log_exc:               # noqa: BLE001
-                    # Bevidst: en sekundær fejl må ikke begrave den oprindelige.
+                except Exception as log_exc:                    # noqa: BLE001
                     log(f"KUNNE IKKE LOGGE FEJL: {log_exc!r} — oprindelig: {exc!r}")
-            raise
-
+            # Bevidst exit 0: DMI-nedetid er forventet drift, ikke en defekt
+            # unit. Vandmærket står stille, og næste kørsel dækker hele
+            # efterslæbet, fordi vinduet bygges fra vandmærket og ikke fra nu.
+            # Med exit != 0 ville systemd melde "failed" hver gang DMI har et
+            # hikke, og journalen blev ubrugelig — samme beslutning som i
+            # push_prices.py for Netsite-nedetid.
+            return 0
 
 if __name__ == "__main__":
     main()

@@ -20,7 +20,7 @@
 set -euo pipefail
 
 # ------------------------------------------------------------------ konfiguration
-APP_DIR="${PRICEJOB_DIR:-/home/peterfausboll/code/pricejob}"
+APP_DIR="${PRICEJOB_DIR:-/home/peterfausboll/code/pricejob/backend}"
 RUN_USER="${PRICEJOB_USER:-peterfausboll}"
 STATE_DIR="${PRICEJOB_STATE_DIR:-/var/lib/pricejob}"
 UNIT_DIR="/etc/systemd/system"

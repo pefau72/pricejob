@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 #
-# status.sh — statusoversigt for prisjobbet på ubserv.
+# status.sh — statusoversigt for datajobbet på ubserv (priser og vejr).
 #
 # Kør:  ./status.sh            (kort oversigt)
 #       ./status.sh -v         (med de sidste loglinjer)
 #       ./status.sh --json     (maskinlæsbar, til overvågning)
 #
 # Scriptet læser kun. Det starter, stopper eller ændrer intet.
+#
+# Dækker begge jobs: priser (elpriser/pricepush) og vejr
+# (weathercollect/weatherpush), samt notify der overvåger dem begge.
 
 set -uo pipefail
 
@@ -60,7 +63,8 @@ human_age() {
 # ================================================================== 1. TIMERS
 section "TIMERS"
 
-TIMER_UNITS=(pricepush.timer pricepush-notify.timer elpriser.timer)
+TIMER_UNITS=(pricepush.timer pricepush-notify.timer elpriser.timer
+             weathercollect.timer weatherpush.timer)
 declare -A TIMER_NEXT TIMER_LAST TIMER_ENABLED
 
 for unit in "${TIMER_UNITS[@]}"; do
@@ -122,6 +126,11 @@ check_service() {
 check_service elpriser.service   $((26 * 3600)) "elpriser (collect)"
 # Push kører hvert 20. minut -> 90 minutter giver plads til et par fejl
 check_service pricepush.service  $((90 * 60))   "pricepush (upload)"
+# Vejr collect kører én gang i døgnet kl. 03:17 -> 26 timer fanger en udeblivelse
+check_service weathercollect.service $((26 * 3600)) "weathercollect"
+# Vejr push kører lige efter collect, men kun hvis filerne er ændret;
+# 26 timer giver plads til en nat hvor alt var uændret
+check_service weatherpush.service    $((26 * 3600)) "weatherpush"
 check_service pricepush-notify.service $((90 * 60)) "notify"
 
 # =================================================================== 3. DATABASE
@@ -177,17 +186,17 @@ if (( PSQL_OK == 1 )); then
     fi
 
     push_row=$(psql -qtAF'|' -c "
-        SELECT run_id, status, coalesce(days_uploaded,0), coalesce(bytes_uploaded,0),
+        SELECT job, run_id, status, coalesce(days_uploaded,0), coalesce(bytes_uploaded,0),
                to_char(finished_at, 'YYYY-MM-DD HH24:MI')
           FROM push_runs ORDER BY run_id DESC LIMIT 1" 2>/dev/null)
     if [[ -n "$push_row" ]]; then
-        IFS='|' read -r rid st days bytes fin <<<"$push_row"
+        IFS='|' read -r pjob rid st days bytes fin <<<"$push_row"
         if [[ $st == ok || $st == dry_run ]]; then
-            [[ $JSON -eq 0 ]] && printf '  %s push_runs #%-5s %-7s dage=%-3s bytes=%-8s %s\n' \
-                "$(ok)" "$rid" "$st" "$days" "$bytes" "$fin"
+            [[ $JSON -eq 0 ]] && printf '  %s push_runs #%-5s %-7s %-11s dage=%-3s bytes=%-8s %s\n' \
+                "$(ok)" "$rid" "$st" "$pjob" "$days" "$bytes" "$fin"
         else
-            [[ $JSON -eq 0 ]] && printf '  %s push_runs #%-5s %s%s%s   %s\n' \
-                "$(bad)" "$rid" "$R" "$st" "$N" "$fin"
+            [[ $JSON -eq 0 ]] && printf '  %s push_runs #%-5s %s%s %-11s%s   %s\n' \
+                "$(bad)" "$rid" "$R" "$st" "$pjob" "$N" "$fin"
             note_problem
         fi
     fi
@@ -213,7 +222,8 @@ if (( PSQL_OK == 1 )); then
     # --- ufuldstændige dage
     short_days=$(psql -qtAc "
         SELECT count(*) FROM pushed_state
-         WHERE day < CURRENT_DATE - INTERVAL '1 day' AND rows_pushed < 92" 2>/dev/null)
+         WHERE day IS NOT NULL
+           AND day < CURRENT_DATE - INTERVAL '1 day' AND rows_pushed < 92" 2>/dev/null)
     if [[ -n "$short_days" && "$short_days" != "0" ]]; then
         [[ $JSON -eq 0 ]] && printf '  %s %s%s dage med < 92 punkter i pushed_state%s\n' \
             "$(warn)" "$Y" "$short_days" "$N"
@@ -222,15 +232,23 @@ if (( PSQL_OK == 1 )); then
 fi
 
 # ============================================================= 4. UPLOADEDE FILER
+# ============================================================= 4. UPLOADEDE FILER
 section "SIDSTE UPLOAD (lokale out/-filer)"
 
-if [[ -d "$APP_DIR/out" ]]; then
-    newest=$(ls -t "$APP_DIR/out"/prices-*.json 2>/dev/null | head -1)
+# Filerne ligger i undermapper: priser i out/pricedata, vejr i out/weather.
+# Foer omstruktureringen laa priserne loest i out/ — scriptet ledte derfor det
+# forkerte sted og meldte "ingen pricedata" uanset hvad der var bygget.
+PRICEDIR="$APP_DIR/out/pricedata"
+WEATHERDIR="$APP_DIR/out/weather"
+
+# --- priser ----------------------------------------------------------------
+if [[ -d "$PRICEDIR" ]]; then
+    newest=$(ls -t "$PRICEDIR"/prices-*.json 2>/dev/null | head -1)
     if [[ -n "$newest" ]]; then
         age=$(( $(now_epoch) - $(stat -c %Y "$newest") ))
         size=$(stat -c %s "$newest")
         name=$(basename "$newest")
-        # Et komplet døgn er ~20 KB; langt mindre tyder på tomme/manglende punkter
+        # Et komplet doegn er ~20 KB; langt mindre tyder paa tomme punkter
         if (( size < 5000 )); then
             [[ $JSON -eq 0 ]] && printf '  %s %-30s %s%s bytes — mistænkeligt lille%s\n' \
                 "$(bad)" "$name" "$R" "$size" "$N"
@@ -240,15 +258,36 @@ if [[ -d "$APP_DIR/out" ]]; then
                 "$(ok)" "$name" "$size" "$(human_age $age)"
         fi
     else
-        [[ $JSON -eq 0 ]] && printf '  %s ingen pricedata i %s/out%s\n' "$(bad)" "$APP_DIR" "$N"
+        [[ $JSON -eq 0 ]] && printf '  %s ingen pricedata i out/pricedata%s\n' "$(bad)" "$N"
         note_problem
     fi
 
-    file_count=$(ls -1 "$APP_DIR/out"/prices-*.json 2>/dev/null | wc -l)
-    [[ $JSON -eq 0 ]] && printf '    %s%s filer i out/%s\n' "$D" "$file_count" "$N"
+    file_count=$(ls -1 "$PRICEDIR"/prices-*.json 2>/dev/null | wc -l)
+    [[ $JSON -eq 0 ]] && printf '    %s%s filer i out/pricedata%s\n' "$D" "$file_count" "$N"
 else
-    [[ $JSON -eq 0 ]] && printf '  %s %s findes ikke%s\n' "$(bad)" "$APP_DIR/out" "$N"
+    [[ $JSON -eq 0 ]] && printf '  %s %s findes ikke%s\n' "$(bad)" "$PRICEDIR" "$N"
     note_problem
+fi
+
+# --- vejr ------------------------------------------------------------------
+# Tre filer med hver sin kadence: normalerne ændrer sig næsten aldrig,
+# aarets kurve opdateres ugentligt. Begge vises, saa et gammelt normals-baand
+# ikke kan glide ubemaerket forbi.
+if [[ -d "$WEATHERDIR" ]]; then
+    for f in "$WEATHERDIR/weather-$(date +%Y).json" \
+             "$WEATHERDIR/normals/weather-normal.json" \
+             "$WEATHERDIR/normals/weather-season.json"; do
+        if [[ -f "$f" ]]; then
+            fage=$(( $(now_epoch) - $(stat -c %Y "$f") ))
+            [[ $JSON -eq 0 ]] && printf '  %s %-30s %s bytes  skrevet %s siden\n' \
+                "$(ok)" "$(basename "$f")" "$(stat -c %s "$f")" "$(human_age $fage)"
+        else
+            [[ $JSON -eq 0 ]] && printf '  %s %-30s mangler\n' "$(warn)" "$(basename "$f")"
+            note_problem
+        fi
+    done
+else
+    [[ $JSON -eq 0 ]] && printf '  %s %s findes ikke%s\n' "$(warn)" "$WEATHERDIR" "$N"
 fi
 
 # ================================================================ 5. DETALJER

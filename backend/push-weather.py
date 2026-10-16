@@ -323,16 +323,31 @@ def fetch_normal(conn) -> dict:
         c_p10 = _fit_harmonics(wk, p10)
         c_p90 = _fit_harmonics(wk, p90)
 
-        lo = [max(0.0, _eval_harmonics(c_p10, w)) for w in wk]
-        hi = [max(0.0, _eval_harmonics(c_p90, w)) for w in wk]
+        # GULV VED NUL GÆLDER KUN STRÅLING.
+        #
+        # Første version satte max(0.0, ...) på ALLE parametre for at undgå
+        # negative strålingsværdier. Det var en fejl: temperatur og vind kan
+        # gå under nul, og for temperatur blev p10-kurven klippet op til 0.0
+        # hele vinteren. Resultatet var et bånd med en RET underkant der lå
+        # over de rigtige p10-værdier — og i vinterugerne over medianen, hvilket
+        # ikke kan lade sig gøre for et p10-bånd.
+        floor_at_zero = (param == "radiation_wm2")
+
+        def _clamp(v: float) -> float:
+            return max(0.0, v) if floor_at_zero else v
+
+        lo = [_clamp(_eval_harmonics(c_p10, w)) for w in wk]
+        hi = [_clamp(_eval_harmonics(c_p90, w)) for w in wk]
 
         out[param] = {
             "unit": PARAM_META[param]["unit"],
+            # band_lo er den usynlige underkant i frontenden; band_thick er
+            # tykkelsen ovenpå. Summen er p90. Derfor må band_thick ikke
+            # klippes ved nul — den er en TYKKELSE, ikke en temperatur.
             "band_lo": [round(v, 1) for v in lo],
             "band_hi": [round(v, 1) for v in hi],
-            "band_thick": [round(max(0.0, hi[i] - lo[i]), 1) for i in range(len(wk))],
+            "band_thick": [round(hi[i] - lo[i], 1) for i in range(len(wk))],
             "median": [round(v, 1) for v in med],
-            "n_years": int(rows[0][0] and 11) if False else None,  # fyldes nedenfor
         }
     return out
 

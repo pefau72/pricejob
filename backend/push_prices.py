@@ -164,7 +164,7 @@ REMOTE_ROOT = os.environ.get("SFTP_REMOTE_ROOT", "/web/pricedata")
 REMOTE_HTML_ROOT = os.environ.get("SFTP_REMOTE_HTML_ROOT", "/web")
 
 # Hvor de byggede filer lægges lokalt før upload
-OUT_DIR = Path(os.environ.get("PUSH_OUT_DIR", Path(__file__).parent / "out"))
+OUT_DIR = Path(os.environ.get("PUSH_OUT_DIR", Path(__file__).parent / "out/pricedata"))
 print(OUT_DIR)
 # Hvor mange gange vi prøver SELVE TRANSFEREN (ikke hele kørslen) ved netværksfejl
 TRANSFER_ATTEMPTS = 3

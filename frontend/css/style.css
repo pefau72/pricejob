@@ -305,13 +305,17 @@ html.is-animating .transition-fade {
         object-fit: contain;
     }
 
-    /* Footer: to linjer, hvert par på én linje */
     .footer-right {
-        display: grid;
-        grid-template-columns: max-content max-content;
+        display: flex;
+        flex-direction: column;      /* hvert par på sin egen linje */
+        align-items: center;         /* blokken centreres */
+        gap: 8px;
+    }
+
+    .footer-line {
+        display: flex;
+        gap: 6px;
         justify-content: center;
-        align-items: center;
-        gap: 8px 16px;
     }
 
     /* Labels får ens bredde, så kolonne 2 starter samme sted */

@@ -29,7 +29,7 @@ const STRINGS = {
         band:         'Normal range',
         thisYear:     'This year',
         season:       'Seasonal curve',
-        loading:      'Loading weather dataâ€¦',
+        loading:      'Loading weather data',
         errorPrefix:  'Error: ',
         chartError:   'Could not load weather data',
         fetched:      'fetched',
@@ -37,29 +37,29 @@ const STRINGS = {
         sourceNote:   'Source: DMI',
         locale:       'en-GB',
         params: {
-            temperature_c: { label: 'Temperature',      unit: 'Â°C' },
-            radiation_wm2: { label: 'Global radiation', unit: 'W/mÂ²' },
+            temperature_c: { label: 'Temperature',      unit: '°C' },
+            radiation_wm2: { label: 'Global radiation', unit: 'W/m²' },
             wind_ms:       { label: 'Wind speed',       unit: 'm/s' },
         },
     },
-    da: {
-        title:        'Vejret i Danmark',
-        subtitle:     'I Ã¥r mÃ¥lt mod normalomrÃ¥det',
-        xAxis:        'Uge',
-        band:         'NormalomrÃ¥de',
-        thisYear:     'I Ã¥r',
-        season:       'SÃ¦sonkurve',
-        loading:      'IndlÃ¦ser vejrdataâ€¦',
-        errorPrefix:  'Fejl: ',
-        chartError:   'Kunne ikke indlÃ¦se vejrdata',
-        fetched:      'hentet',
-        none:         'Ingen vejrdata fundet',
-        sourceNote:   'Kilde: DMI',
-        locale:       'da-DK',
+    de: {
+        title:        'Wetter in Dänemark',
+        subtitle:     'Dieses Jahr gemessen am Normalbereich',
+        xAxis:        'Woche',
+        band:         'Normalbereich',
+        thisYear:     'Dieses Jahr',
+        season:       'Saisonkurve',
+        loading:      'Wetterdaten werden geladen',
+        errorPrefix:  'Fehler: ',
+        chartError:   'Wetterdaten konnten nicht geladen werden',
+        fetched:      'abgerufen',
+        none:         'Keine Wetterdaten gefunden',
+        sourceNote:   'Quelle: DMI',
+        locale:       'de-DE',
         params: {
-            temperature_c: { label: 'Temperatur',    unit: 'Â°C' },
-            radiation_wm2: { label: 'GlobalstrÃ¥ling', unit: 'W/mÂ²' },
-            wind_ms:       { label: 'Vindhastighed', unit: 'm/s' },
+            temperature_c: { label: 'Temperatur',    unit: '°C' },
+            radiation_wm2: { label: 'Globale Strahlung', unit: 'W/m²' },
+            wind_ms:       { label: 'Windgeschwindigkeit', unit: 'm/s' },
         },
     },
 };
@@ -409,7 +409,7 @@ function render(normals, season, current) {
             dateStyle: 'short', timeStyle: 'short',
             timeZone: 'Europe/Copenhagen',
         }).format(new Date(current.generated_at));
-        meta.innerText = `${t('sourceNote')} Â· ${t('fetched')} ${when}`;
+        meta.innerText = `${t('sourceNote')} · ${t('fetched')} ${when}`;
     }
 }
 

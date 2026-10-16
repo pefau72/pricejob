@@ -10,11 +10,11 @@ Modellen er derfor:
     push_prices.py  ->  skriver status i push_runs  ->  notify.py læser og varsler
 
 Kør fra cron efter push-jobbet:
-    5,25,45 * * * * cd /home/peterfausboll/code/pricejob && python3 notify.py
-
+    5,25,45 * * * * cd /home/peterfausboll/code/datajob && python3 notify.py
 Varsler (se CHECKS nedenfor):
   - fejlede kørsler
-  - ingen vellykket kørsel i mere end MAX_SILENCE_HOURS
+  - ingen vellykket kørsel i mere end jobbets silence_hours
+  - begge jobs overvåges hver for sig (push_prices, push_weather)
   - netsite nede mange gange i træk
   - dage der bliver ved med at være ufuldstændige
 
@@ -38,7 +38,7 @@ import psycopg
 
 HERE = Path(__file__).parent
 STATE_FILE = Path(os.environ.get("NOTIFY_STATE_FILE", HERE / "notify_state.json"))
-ReadWritePaths="/home/peterfausboll/code/pricejob"
+# systemd-unit'en skal have ReadWritePaths for at kunne skrive notify_state.json.
 # ------------------------------------------------------------------ konfiguration
 
 def _env(key: str, default: str | None = None) -> str | None:
@@ -54,9 +54,33 @@ SMTP_STARTTLS = _env("SMTP_STARTTLS", "1") not in ("0", "false", "no")
 MAIL_FROM = _env("MAIL_FROM", SMTP_USER)
 MAIL_TO = _env("MAIL_TO")                       # kommasepareret for flere
 
-# Hvor længe uden en vellykket kørsel før vi siger til. Jobbet kører hvert
-# 20. minut, så 3 timer er rigeligt til at fange "cron er død" / "serveren er nede".
-MAX_SILENCE_HOURS = int(_env("NOTIFY_MAX_SILENCE_HOURS", "3"))
+# JOBS OG DERES KADENCE.
+#
+# push_runs deles af to jobs med vidt forskellig kadence: priser hvert 20.
+# minut, vejr én gang i døgnet. Et fælles MAX_SILENCE_HOURS ville derfor
+# være forkert for mindst ét af dem — 2 timer er rigeligt for priser og alt
+# for stramt for vejr.
+#
+# Hvert job overvåges for sig, og alarm-nøglerne prefikses med job-navnet,
+# saa de ikke overskriver hinandens tilstand i notify_state.json.
+#
+#   silence_hours  hvor længe uden en vellykket kørsel før vi siger til.
+#                  Vejr kører kl. 03:17 med Persistent=true, saa en genstart
+#                  om natten udskyder kørslen til opstart — 30 timer giver
+#                  plads til det uden falske alarmer.
+#   interval_hint  ren tekst til mailens "tjek selv"-afsnit.
+JOBS = {
+    "push_prices": {
+        "label": "priser",
+        "silence_hours": 2,
+        "interval_hint": "hvert 20. minut",
+    },
+    "push_weather": {
+        "label": "vejr",
+        "silence_hours": 30,
+        "interval_hint": "én gang i døgnet (kl. 03:17)",
+    },
+}
 
 # Antal fejlede kørsler i træk før vi kalder det "netsite er nede" snarere end
 # "en enkelt kørsel fejlede".
@@ -187,80 +211,69 @@ def send_mail(subject: str, body: str) -> None:
 
 # ------------------------------------------------------------------ tjek
 
-def check(conn, state: dict) -> list[dict]:
+# ------------------------------------------------------------------ tjek
+
+def check_job(conn, job: str, cfg: dict, now: datetime) -> list[dict]:
     """
-    Returnerer en liste af aktive problemer. Hvert problem har en 'key' der
-    bruges til at huske hvad der allerede er varslet om.
+    Checks for ÉT job.
+
+    Alle tre push_runs-queries filtrerer på job, saa de to jobs ikke blandes.
+    Alarm-nøglerne prefikses med job-navnet: uden det ville en vejralarm
+    blive slettet fra notify_state.json i samme sekund prisjobbet kom i
+    orden igen, fordi nøglen var den samme.
     """
     problems: list[dict] = []
-    now = datetime.now(timezone.utc)
+    label = cfg["label"]
 
     with conn.cursor() as cur:
-        # --- seneste kørsler ------------------------------------------------
         cur.execute("""
             SELECT run_id, started_at, finished_at, status,
                    days_planned, days_uploaded, days_skipped, error
               FROM push_runs
+             WHERE job = %s
              ORDER BY run_id DESC
              LIMIT 20
-        """)
+        """, (job,))
         runs = cur.fetchall()
 
         cur.execute("""
             SELECT max(finished_at)
               FROM push_runs
-             WHERE status = 'ok' AND days_uploaded > 0
-        """)
-        last_ok_any = cur.fetchone()[0]
-
-        cur.execute("""
-            SELECT max(finished_at)
-              FROM push_runs
-             WHERE status = 'ok'
-        """)
+             WHERE job = %s AND status = 'ok'
+        """, (job,))
         last_ok = cur.fetchone()[0]
-
-        # --- ufuldstændige dage --------------------------------------------
-        # En dag er mistænkelig hvis den er i fortiden og har færre punkter end
-        # et komplet døgn. Vi kender ikke DST-dage her, så vi bruger 96 som
-        # nominelt og tolererer under.
-        cur.execute("""
-            SELECT day, rows_pushed, pushed_at
-              FROM pushed_state
-             WHERE day < CURRENT_DATE - INTERVAL '1 day'
-               AND rows_pushed < 92
-             ORDER BY day DESC
-             LIMIT 5
-        """)
-        short_days = cur.fetchall()
 
     # 1) Ingen vellykket kørsel i lang tid
     if last_ok is not None:
         quiet_for = now - last_ok
-        if quiet_for > timedelta(hours=MAX_SILENCE_HOURS):
+        if quiet_for > timedelta(hours=cfg["silence_hours"]):
             problems.append({
-                "key": "silence",
-                "subject": f"[elpriser] ingen vellykket push-kørsel i {quiet_for.total_seconds()/3600:.1f} timer",
+                "key": f"{job}_silence",
+                "subject": f"[pricejob] ingen vellykket {label}-push i "
+                           f"{quiet_for.total_seconds() / 3600:.1f} timer",
                 "body": (
+                    f"Job:                       {job}\n"
                     f"Seneste vellykkede kørsel: {last_ok.isoformat()}\n"
-                    f"Nuværende tid:              {now.isoformat()}\n"
-                    f"Jobbet skulle køre hvert 20. minut.\n\n"
+                    f"Nuværende tid:             {now.isoformat()}\n"
+                    f"Jobbet skulle køre {cfg['interval_hint']}.\n\n"
                     "Tjek:\n"
+                    "  systemctl list-timers 'weather-*'\n"
                     "  systemctl status cron  (eller crontab -l)\n"
-                    "  python3 push_prices.py --dry-run\n"
-                    "  journalctl -u pricepush.service -n 50 --no-pager"
+                    f"  SELECT run_id, status, error FROM push_runs\n"
+                    f"   WHERE job = '{job}' ORDER BY run_id DESC LIMIT 10;\n"
                 ),
             })
     elif runs:
-        # Der ER kørsler, men ingen er lykkedes nogensinde
         problems.append({
-            "key": "never_ok",
-            "subject": "[elpriser] ingen push-kørsel er nogensinde lykkedes",
-            "body": "Der findes rækker i push_runs, men ingen med status 'ok'.\n\n"
-                    + "\n".join(f"  {r[0]} {r[1]} {r[3]} {r[7] or ''}" for r in runs[:5]),
+            "key": f"{job}_never_ok",
+            "subject": f"[pricejob] ingen {label}-push er nogensinde lykkedes",
+            "body": f"Der findes rækker i push_runs for {job}, men ingen med "
+                    f"status 'ok'.\n\n"
+                    + "\n".join(f"  {r[0]} {r[1]} {r[3]} {r[7] or ''}"
+                                for r in runs[:5]),
         })
 
-    # 2) Fejl i træk
+    # 2) Fejl i træk — kun dette jobs egne kørsler
     streak = 0
     for r in runs:                       # nyeste først
         if r[3] == "failed":
@@ -270,56 +283,87 @@ def check(conn, state: dict) -> list[dict]:
     if streak >= FAIL_STREAK_THRESHOLD:
         latest = runs[0]
         problems.append({
-            "key": "fail_streak",
-            "subject": f"[elpriser] {streak} fejlede push-kørsler i træk",
+            "key": f"{job}_fail_streak",
+            "subject": f"[pricejob] {streak} fejlede {label}-push-kørsler i træk",
             "body": (
+                f"Job: {job}\n"
                 f"Nyeste fejl (kørsel {latest[0]}, {latest[1]}):\n\n"
                 f"{latest[7] or '(ingen fejltekst)'}\n\n"
-                "Er fejlen en SFTP-fejl, er det oftest netsite der er nede eller\n"
-                "har skiftet host-nøgle. Ingén af delene kræver handling herfra —\n"
-                "jobbet henter efterslæbet selv når forbindelsen virker igen.\n\n"
-                "Er fejlen en DB-fejl, skal den ses på med det samme."
+                "Fejler SFTP, henter jobbet hele efterslæbet selv når "
+                "forbindelsen virker igen — intet går tabt.\n"
             ),
         })
-
-    # 3) Dage der bliver ved med at være ufuldstændige
-    for day, rows, pushed_at in short_days:
-        age = now - pushed_at
-        if age > timedelta(hours=STALE_DAY_HOURS):
-            problems.append({
-                "key": f"short_day:{day}",
-                "subject": f"[elpriser] dagen {day} er stadig ufuldstændig ({rows} punkter)",
-                "body": (
-                    f"Dagen {day} blev sidst pushet {pushed_at.isoformat()} "
-                    f"({age.total_seconds()/3600:.0f} timer siden) med kun {rows} punkter.\n"
-                    "Et komplet døgn har 96 (92/100 på DST-dage).\n\n"
-                    "Det tyder på at collect-jobbet (job.py) ikke har hentet hele døgnet.\n"
-                    "Tjek:\n"
-                    "  SELECT job, watermark_dk, last_success_at FROM sync_state;\n"
-                    "  SELECT run_id, status, error FROM sync_runs ORDER BY run_id DESC LIMIT 10;"
-                ),
-            })
 
     return problems
 
 
-# ------------------------------------------------------------------ main
+def check_short_days(conn, now: datetime) -> list[dict]:
+    """
+    Dage i pushed_state der har været ufuldstændige længe.
+
+    Kun prisjobbet: det skriver DAGE i pushed_state med day sat. Vejrjobbet
+    skriver rækker hvor day er NULL og rows_pushed er et andet slags tal
+    (antal maalinger, ikke antal punkter i et doegn). Uden 'day IS NOT NULL'
+    ville vejr-raekker blive vurderet mod 92-punktsgraensen og give falske
+    alarmer.
+    """
+    problems: list[dict] = []
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT day, rows_pushed, pushed_at
+              FROM pushed_state
+             WHERE day IS NOT NULL
+               AND day < CURRENT_DATE - INTERVAL '1 day'
+               AND rows_pushed < 92
+               AND pushed_at < now() - make_interval(hours => %s)
+             ORDER BY day DESC
+             LIMIT 5
+        """, (STALE_DAY_HOURS,))
+        short_days = cur.fetchall()
+
+    if short_days:
+        days_txt = "\n".join(
+            f"  {d[0]}: {d[1]} punkter (pushet {d[2].isoformat()})"
+            for d in short_days
+        )
+        problems.append({
+            "key": "short_days",
+            "subject": f"[pricejob] {len(short_days)} dage er stadig ufuldstændige",
+            "body": (
+                f"Ingen af disse dage har fået fulde 96 punkter:\n\n{days_txt}\n\n"
+                "Det tyder på at collect-jobbet (job.py) ikke har hentet "
+                "hele døgnet.\n\n"
+                "Tjek:\n"
+                "  SELECT job, watermark_dk, last_success_at FROM sync_state;\n"
+                "  SELECT run_id, status, error FROM sync_runs "
+                "ORDER BY run_id DESC LIMIT 10;\n"
+            ),
+        })
+
+    return problems
+
 
 def main() -> int:
     load_env_file(HERE / ".env")
 
     state = load_state()
     active_keys: set[str] = set()
+    now = datetime.now(timezone.utc)
 
     try:
         with psycopg.connect(get_dsn()) as conn:
-            problems = check(conn, state)
+            problems: list[dict] = []
+            # Hvert job overvåges for sig — se JOBS ovenfor.
+            for job, cfg in JOBS.items():
+                problems += check_job(conn, job, cfg, now)
+            # Dagschecken hører til prisjobbet alene.
+            problems += check_short_days(conn, now)
     except Exception as exc:                      # noqa: BLE001
         # Kan vi ikke engang læse databasen, er det selv et problem — og et
         # alvorligt et, for så logger push-jobbet heller ikke noget.
         problems = [{
             "key": "db_unreachable",
-            "subject": "[elpriser] notify.py kan ikke læse databasen",
+            "subject": "[pricejob] notify.py kan ikke læse databasen",
             "body": f"Fejl ved forbindelse til Postgres:\n\n{exc!r}\n\n"
                     "Hvis DB er nede, kan push-jobbet heller ikke køre.",
         }]
@@ -336,7 +380,7 @@ def main() -> int:
         except Exception as exc:                  # noqa: BLE001
             print(f"kunne ikke sende mail: {exc!r}", file=sys.stderr)
             continue                              # ikke markeret -> forsøges igen
-        state.setdefault("notified", {})[p["key"]] = datetime.now(timezone.utc).isoformat()
+        state.setdefault("notified", {})[p["key"]] = now.isoformat()
 
     # Ryd tilstand for problemer der ikke længere er aktive, så en ny fejl
     # kan varsle igen senere.
@@ -345,7 +389,10 @@ def main() -> int:
             del state["notified"][k]
 
     save_state(state)
-    print(f"tjek færdigt: {len(problems)} aktive problem(er), {sent} mail(s) sendt")
+    if not problems:
+        print("alt i orden — ingen problemer")
+    else:
+        print(f"{len(problems)} problem(er), {sent} mail(s) sendt")
     return 0
 
 

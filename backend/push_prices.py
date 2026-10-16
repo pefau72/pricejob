@@ -311,9 +311,17 @@ def db_finish_run(conn, run_id: int, status: str, **cols) -> None:
 
 
 def pushed_hashes(conn) -> dict[date, str]:
-    """Dage vi tidligere har uploadet, med deres indholds-hash."""
+    """Dage vi tidligere har uploadet, med deres indholds-hash.
+
+    BEMÆRK: pushed_state deles med push_weather.py, som skriver rækker hvor
+    'day' er NULL og 'kind' er sat. Uden filteret her kommer der en None-noegle
+    i dict'en, og min(known) i plan_window kaster
+    TypeError: '<' not supported between NoneType and datetime.date.
+    """
     with conn.cursor() as cur:
-        cur.execute("SELECT day, content_hash FROM pushed_state")
+        cur.execute(
+            "SELECT day, content_hash FROM pushed_state WHERE day IS NOT NULL"
+        )
         return {r[0]: r[1] for r in cur.fetchall()}
 
 
@@ -323,7 +331,7 @@ def record_pushed(conn, day: date, rows: int, digest: str) -> None:
             """
             INSERT INTO pushed_state (day, pushed_at, rows_pushed, content_hash)
             VALUES (%s, now(), %s, %s)
-            ON CONFLICT (day) DO UPDATE
+            ON CONFLICT (day) WHERE day IS NOT NULL DO UPDATE
                SET pushed_at    = now(),
                    rows_pushed  = EXCLUDED.rows_pushed,
                    content_hash = EXCLUDED.content_hash
@@ -478,7 +486,7 @@ def build_day_payload(day: date, rows, now_utc: datetime) -> tuple[dict, list[st
         "date": day.isoformat(),
         "generated_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "unit": "DKK_per_kWh",
-        "unit_eur": "EUR_per_kWh", 
+        "unit_eur": "EUR_per_kWh",
         "interval_minutes": INTERVAL_MINUTES,
         "areas": list(AREAS),
         "hours": points,

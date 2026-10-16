@@ -34,7 +34,7 @@ from zoneinfo import ZoneInfo
 import psycopg
 from dotenv import load_dotenv
 
-load_dotenv("/home/peterfausboll/code/pricejob/backend/.env")
+load_dotenv("/home/peterfausboll/code/datajob/backend/.env")
 
 CPH = ZoneInfo("Europe/Copenhagen")
 

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 CPH = ZoneInfo("Europe/Copenhagen")
 from urllib.error import HTTPError, URLError
 from dotenv import load_dotenv
-load_dotenv("/home/peterfausboll/code/pricejob/backend/.env")
+load_dotenv("/home/peterfausboll/code/datajob/backend/.env")
 
 
 AREAS = ["DK1", "DK2", "DE", "SE3", "SE4", "NO2"]

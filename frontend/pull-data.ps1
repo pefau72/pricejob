@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 
 $RemoteHost = 'ubserv'
 $RemoteUser = 'peterfausboll'
-$RemotePath = 'code/pricejob/backend/out'   # relativ til ~ på serveren
+$RemotePath = 'code/datajob/backend/out'   # relativ til ~ på serveren
 $LocalPath  = 'C:\Users\peter\Dropbox\Documents\Arbejde\Regenda\Grafik\Websolution\frontend'
 $LogFile    = "$env:LOCALAPPDATA\pull-data.log"
 

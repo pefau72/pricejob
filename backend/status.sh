@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# pricejob-status.sh — statusoversigt for prisjobbet på ubserv.
+# status.sh — statusoversigt for prisjobbet på ubserv.
 #
-# Kør:  ./pricejob-status.sh            (kort oversigt)
-#       ./pricejob-status.sh -v         (med de sidste loglinjer)
-#       ./pricejob-status.sh --json     (maskinlæsbar, til overvågning)
+# Kør:  ./status.sh            (kort oversigt)
+#       ./status.sh -v         (med de sidste loglinjer)
+#       ./status.sh --json     (maskinlæsbar, til overvågning)
 #
 # Scriptet læser kun. Det starter, stopper eller ændrer intet.
 
 set -uo pipefail
 
-APP_DIR="${PRICEJOB_DIR:-$HOME/code/pricejob/backend}"
+APP_DIR="${DATAJOB_DIR:-$HOME/code/datajob/backend}"
 VERBOSE=0
 JSON=0
 case "${1:-}" in

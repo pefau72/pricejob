@@ -218,10 +218,12 @@ def ensure_tables(conn) -> None:
         cur.execute(DDL_PUSH_RUNS)
     conn.commit()
 
-
 def db_start_run(conn) -> int:
     with conn.cursor() as cur:
-        cur.execute("INSERT INTO push_runs (status) VALUES ('running') RETURNING run_id")
+        cur.execute(
+            "INSERT INTO push_runs (status, job) VALUES ('running', %s) RETURNING run_id",
+            (JOB,),
+        )
         run_id = cur.fetchone()[0]
     conn.commit()
     return run_id

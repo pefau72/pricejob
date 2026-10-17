@@ -17,13 +17,13 @@
 #   pricepush.service           upload priser
 #   weathercollect.service      collect DMI-vejr
 #   weatherpush.service         upload vejr (kun hvis ændret)
-#   pricepush-notify.service    kontrol af BEGGE jobs
+#   jobs-notify.service    kontrol af BEGGE jobs
 #
 #   elpriser.timer              dagligt, efter offentliggørelsen
 #   pricepush.timer             hvert 20. min, tættere 13-14
 #   weathercollect.timer        dagligt kl. 03:17
 #   weatherpush.timer           dagligt kl. 03:40 (efter collect)
-#   pricepush-notify.timer      5 min efter push
+#   jobs-notify.timer      5 min efter push
 #
 # Kør:
 #   sudo ./install-units.sh --dry-run     vis hvad der ville ske
@@ -163,6 +163,11 @@ fi
 LEGACY_UNITS=(
     "weather-job.timer"
     "weather-job.service"
+    # notify-unit'en blev oprettet som 'pricepush-notify', dengang der kun var
+    # ét job. Den overvåger BEGGE jobs, så navnet løj — omdøbt til 'jobs-notify'.
+    # De gamle fjernes her, så omdøbningen klarer sig i én kørsel.
+    "pricepush-notify.timer"
+    "pricepush-notify.service"
 )
 
 head_ "Oprydning af gamle units"
@@ -279,7 +284,7 @@ Environment=NOTIFY_STATE_FILE=$STATE_DIR/notify_state.json
 ReadWritePaths=$STATE_DIR
 ExecStart=$PYTHON $APP_DIR/notify.py
 EOF
-write_unit "pricepush-notify.service" "$NOTIFY_SERVICE"
+write_unit "jobs-notify.service" "$NOTIFY_SERVICE"
 
 # ================================================================ TIMERS
 head_ "Timere"
@@ -324,12 +329,12 @@ OnCalendar=$NOTIFY_TIGHT
 OnCalendar=$NOTIFY_NORMAL
 Persistent=true
 RandomizedDelaySec=30
-Unit=pricepush-notify.service
+Unit=jobs-notify.service
 
 [Install]
 WantedBy=timers.target
 EOF
-write_unit "pricepush-notify.timer" "$NOTIFY_TIMER"
+write_unit "jobs-notify.timer" "$NOTIFY_TIMER"
 
 read -r -d '' WEATHER_COLLECT_TIMER <<EOF || true
 [Unit]
@@ -364,7 +369,7 @@ write_unit "weatherpush.timer" "$WEATHER_PUSH_TIMER"
 # ================================================================ AKTIVERING
 head_ "Aktivering"
 
-ALL_TIMERS="elpriser.timer pricepush.timer pricepush-notify.timer weathercollect.timer weatherpush.timer"
+ALL_TIMERS="elpriser.timer pricepush.timer jobs-notify.timer weathercollect.timer weatherpush.timer"
 
 if (( DRY_RUN )); then
     say "  (dry run — ingen daemon-reload, enable eller genstart)"

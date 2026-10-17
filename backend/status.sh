@@ -63,7 +63,7 @@ human_age() {
 # ================================================================== 1. TIMERS
 section "TIMERS"
 
-TIMER_UNITS=(pricepush.timer pricepush-notify.timer elpriser.timer
+TIMER_UNITS=(pricepush.timer jobs-notify.timer elpriser.timer
              weathercollect.timer weatherpush.timer)
 declare -A TIMER_NEXT TIMER_LAST TIMER_ENABLED
 
@@ -101,13 +101,38 @@ section "SERVICES"
 
 check_service() {
     local unit=$1 max_age=$2 label=$3
-    local state epoch age
+    local state epoch age result since
     state=$(systemctl is-active "$unit" 2>/dev/null || true)
+    result=$(systemctl show -p Result --value "$unit" 2>/dev/null)
     epoch=$(last_run_epoch "$unit")
     age=$(( $(now_epoch) - epoch ))
 
+    # UFALDSKONTROL — ikke kun hvornår timeren udløste.
+    #
+    # systemctl show -p LastTriggerUSec giver hvornår TIMEREN udløste, ikke om
+    # jobbet lykkedes. En service kan fejle i execve (No such file or directory)
+    # eller i selve scriptet, mens timerens tidsstempel ser helt normalt ud.
+    # Det var præcis hvad der skete 16. okt: elpriser.timer havde "sidst:
+    # 13:20:58" mens servicen fejlede med "Failed to run start task".
+    #
+    # Result-vaerdier: success | exit-code | signal | timeout | resources |
+    #                   core-dump | start-limit-hit | (tom = aldrig kørt)
+    if [[ -n "$result" && "$result" != "success" ]]; then
+        state="FAILED:$result"
+    fi
+
     if (( epoch == 0 )); then
         [[ $JSON -eq 0 ]] && printf '  %s %-26s %s ingen kørsel registreret%s\n' "$(warn)" "$label" "$Y" "$N"
+        note_problem
+        return
+    fi
+
+    # Fejlet kørsel er et problem UANSET hvor nylig den er
+    if [[ "$state" == FAILED:* ]]; then
+        since=$(systemctl show -p ExecMainStartTimestamp --value "$unit" 2>/dev/null)
+        [[ -z "$since" || "$since" == "n/a" ]] && since="$(human_age $age) siden"
+        [[ $JSON -eq 0 ]] && printf '  %s %-26s %sFEJLEDE%s (%s)  %s\n' \
+            "$(bad)" "$label" "$R" "$N" "${state#FAILED:}" "$since"
         note_problem
         return
     fi
@@ -131,7 +156,7 @@ check_service weathercollect.service $((26 * 3600)) "weathercollect"
 # Vejr push kører lige efter collect, men kun hvis filerne er ændret;
 # 26 timer giver plads til en nat hvor alt var uændret
 check_service weatherpush.service    $((26 * 3600)) "weatherpush"
-check_service pricepush-notify.service $((90 * 60)) "notify"
+check_service jobs-notify.service $((90 * 60)) "notify"
 
 # =================================================================== 3. DATABASE
 section "DATABASE"
@@ -297,7 +322,7 @@ if (( VERBOSE == 1 )) && [[ $JSON -eq 0 ]]; then
         printf '    %s(journalen er ikke tilgængelig uden sudo)%s\n' "$Y" "$N"
 
     section "SENESTE LOG (notify, 8 linjer)"
-    journalctl -u pricepush-notify.service -n 8 --no-pager 2>/dev/null | sed 's/^/    /' || true
+    journalctl -u jobs-notify.service -n 8 --no-pager 2>/dev/null | sed 's/^/    /' || true
 
     section "JOURNALENS LAGRING"
     if [[ -d /var/log/journal ]]; then

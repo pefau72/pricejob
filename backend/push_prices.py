@@ -501,6 +501,23 @@ def canonical_bytes(payload: dict) -> bytes:
     ).encode("utf-8")
 
 
+
+def content_digest(payload: dict) -> str:
+    """
+    Hash af INDHOLDET, uden tidsstempler.
+
+    generated_utc aendrer sig ved hver koersel. Indgaar det i hashen, bliver
+    hashen ny hver gang, og dedup'en i hovedloekken virker aldrig:
+    known.get(day) == digest kan ikke indtraeffe, og jobbet gensender hele
+    vinduet hver 20. minut — 31 dage, 655 KB, identisk hver gang.
+
+    Det var praecis hvad der skete. Kommentaren i hovedloekken sagde at tiden
+    ikke maatte indgaa; koden gjorde det alligevel, fordi hashen blev taget
+    over canonical_bytes(payload) hvor generated_utc staar.
+    """
+    body = {k: v for k, v in payload.items() if k != "generated_utc"}
+    return hashlib.sha256(canonical_bytes(body)).hexdigest()
+
 def write_atomic(path: Path, data: bytes) -> None:
     """
     Skriv til temp-fil i SAMME katalog og rename. Upload sker fra disse filer,
@@ -818,7 +835,8 @@ def main() -> int:
                     partial_days.append(day)
 
                 data = canonical_bytes(payload)
-                digest = hashlib.sha256(data).hexdigest()
+                # Hash UDEN generated_utc — se content_digest()
+                digest = content_digest(payload)
 
                 # Uændret siden sidst? Så er der ikke noget at hente ude hos
                 # netsite, og vi springer uploadet over. Tiden (generated_utc)
@@ -903,9 +921,7 @@ def main() -> int:
             # den rigtige side at fejle på.
             for day, path in plan.daily.items():
                 payload = json.loads(path.read_text(encoding="utf-8"))
-                digest = hashlib.sha256(
-                    canonical_bytes(payload)
-                ).hexdigest()
+                digest = content_digest(payload)   # SAMME digest som i planen
                 record_pushed(conn, day, len(payload["hours"]), digest)
 
             log(f"uploadet {len(plan.daily)} dage ({total_bytes} bytes) til {REMOTE_ROOT}")

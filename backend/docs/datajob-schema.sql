@@ -662,14 +662,24 @@ ALTER TABLE ONLY public.weather_sources
 -- Logtabellerne (sync_runs, push_runs) har ingen — de beskriver hvad der
 -- SKETE og skrives konstant.
 --
+-- To på weather, to på weather_source_locations. Tabellen SKAL stå eksplicit
+-- på hver linje — en hardkodet ALTER TABLE ville lægge constrainten på den
+-- forkerte tabel, hvilket er præcis hvad en diff mod produktion fanger.
 ALTER TABLE ONLY public.weather
-    ADD CONSTRAINT weather_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.weather_locations(location_id);
+    ADD CONSTRAINT weather_location_id_fkey FOREIGN KEY (location_id)
+    REFERENCES public.weather_locations(location_id);
+
 ALTER TABLE ONLY public.weather
-    ADD CONSTRAINT weather_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.weather_sources(source_id);
-ALTER TABLE ONLY public.weather
-    ADD CONSTRAINT weather_source_locations_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.weather_locations(location_id);
-ALTER TABLE ONLY public.weather
-    ADD CONSTRAINT weather_source_locations_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.weather_sources(source_id);
+    ADD CONSTRAINT weather_source_id_fkey FOREIGN KEY (source_id)
+    REFERENCES public.weather_sources(source_id);
+
+ALTER TABLE ONLY public.weather_source_locations
+    ADD CONSTRAINT weather_source_locations_location_id_fkey FOREIGN KEY (location_id)
+    REFERENCES public.weather_locations(location_id);
+
+ALTER TABLE ONLY public.weather_source_locations
+    ADD CONSTRAINT weather_source_locations_source_id_fkey FOREIGN KEY (source_id)
+    REFERENCES public.weather_sources(source_id);
 ALTER TABLE ONLY public.weather_source_locations
     ADD CONSTRAINT weather_source_locations_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.weather_locations(location_id);
 ALTER TABLE ONLY public.weather_source_locations
